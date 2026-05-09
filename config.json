@@ -1,0 +1,35 @@
+{
+  "status": {
+    "system_status": "ready",
+    "market_open": false,
+    "last_update": "2026-05-09 09:30:31",
+    "scanner_running": false
+  },
+  "configuration": {
+    "fno_stocks_total": 209,
+    "scan_interval": 5,
+    "oi_change_min": 2.0,
+    "price_change_min": 0.3,
+    "volume_mult": 1.5,
+    "output_file": "OISignalFlow_Results.xlsx",
+    "telegram_enabled": true,
+    "desktop_notifications": true,
+    "api_source": "NSE nselib",
+    "data_type": "Futures (FUTSTK)",
+    "period": "1D Candles",
+    "api_status": "Connected"
+  },
+  "statistics": {
+    "total_scans": 0,
+    "stocks_scanned": 0,
+    "signals_found": 0,
+    "ce_candidates": 0,
+    "market_mood": "NEUTRAL",
+    "long_buildup_count": 0,
+    "short_buildup_count": 0,
+    "short_covering_count": 0,
+    "long_unwinding_count": 0
+  },
+  "recent_signals": [],
+  "all_scan_results": []
+}

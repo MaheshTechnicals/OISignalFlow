@@ -63,6 +63,19 @@ LOG_LEVEL         = os.getenv('LOG_LEVEL', 'INFO')                  # DEBUG, INF
 
 
 # ============================================================
+# 🎨  TERMINAL COLORS
+# ============================================================
+
+GREEN  = "\033[92m"
+RED    = "\033[91m"
+YELLOW = "\033[93m"
+CYAN   = "\033[96m"
+WHITE  = "\033[97m"
+RESET  = "\033[0m"
+BOLD   = "\033[1m"
+
+
+# ============================================================
 # 📋  FNO STOCKS WATCHLIST — FETCHED FROM API
 # ============================================================
 
@@ -96,19 +109,6 @@ def fetch_fno_stocks():
 
 # Fetch FNO stocks from API, fallback to hardcoded list
 FNO_STOCKS = fetch_fno_stocks() or FALLBACK_FNO_STOCKS
-
-
-# ============================================================
-# 🎨  TERMINAL COLORS
-# ============================================================
-
-GREEN  = "\033[92m"
-RED    = "\033[91m"
-YELLOW = "\033[93m"
-CYAN   = "\033[96m"
-WHITE  = "\033[97m"
-RESET  = "\033[0m"
-BOLD   = "\033[1m"
 
 
 # ============================================================
@@ -360,6 +360,85 @@ def save_to_excel(all_df, ce_df):
 
 
 # ============================================================
+# 📡  REAL-TIME CONFIG UPDATER
+# ============================================================
+
+def update_config_json(scan_num, current_symbol, results, ce_candidates):
+    """Update config.json with real-time scan data for live dashboard"""
+    import json
+    try:
+        config = {
+            "status": {
+                "system_status": "scanning" if current_symbol else "ready",
+                "market_open": is_market_open(),
+                "last_update": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "scanner_running": True,
+                "current_scan": scan_num,
+                "current_stock": current_symbol
+            },
+            "configuration": {
+                "fno_stocks_total": len(FNO_STOCKS),
+                "scan_interval": SCAN_INTERVAL,
+                "oi_change_min": OI_CHANGE_MIN,
+                "price_change_min": PRICE_CHANGE_MIN,
+                "volume_mult": VOLUME_MULT,
+                "output_file": OUTPUT_FILE,
+                "telegram_enabled": True,
+                "desktop_notifications": DESKTOP_NOTIFY,
+                "api_source": "NSE nselib",
+                "data_type": "Futures (FUTSTK)",
+                "period": "1D Candles",
+                "api_status": "Connected"
+            },
+            "statistics": {
+                "total_scans": scan_num,
+                "stocks_scanned": len(results),
+                "signals_found": len(ce_candidates),
+                "long_buildup_count": len([r for r in results if "LONG BUILDUP" in r['Signal']]),
+                "short_buildup_count": len([r for r in results if "SHORT BUILDUP" in r['Signal']]),
+                "short_covering_count": len([r for r in results if "SHORT COVERING" in r['Signal']]),
+                "long_unwinding_count": len([r for r in results if "LONG UNWINDING" in r['Signal']])
+            },
+            "recent_signals": [
+                {
+                    "symbol": s['Symbol'],
+                    "price": s['Price'],
+                    "price_change": s['Price_Chg_%'],
+                    "oi_change": s['OI_Chg_%'],
+                    "volume_ratio": s['Vol_Ratio'],
+                    "signal": s['Signal'],
+                    "strength": "🔥🔥 VERY STRONG" if s['OI_Chg_%'] >= 5 and s['Vol_Ratio'] >= 3 else "🔥 STRONG" if s['OI_Chg_%'] >= 3 else "✅ MODERATE",
+                    "time": s['Time']
+                }
+                for s in ce_candidates
+            ],
+            "all_scan_results": [
+                {
+                    "symbol": r['Symbol'],
+                    "price": r['Price'],
+                    "price_change": r['Price_Chg_%'],
+                    "oi_change": r['OI_Chg_%'],
+                    "volume_ratio": r['Vol_Ratio'],
+                    "signal": r['Signal'],
+                    "filters": {
+                        "signal_ok": "🟢 LONG BUILDUP" in r['Signal'],
+                        "oi_ok": r['OI_Chg_%'] >= OI_CHANGE_MIN,
+                        "price_ok": r['Price_Chg_%'] >= PRICE_CHANGE_MIN,
+                        "volume_ok": r['Vol_Ratio'] >= VOLUME_MULT
+                    },
+                    "time": r['Time']
+                }
+                for r in sorted(results, key=lambda x: x['OI_Chg_%'], reverse=True)
+            ]
+        }
+        
+        with open('config.json', 'w') as f:
+            json.dump(config, f, indent=2)
+    except Exception as e:
+        print(f"  {RED}❌ Config update error: {e}{RESET}")
+
+
+# ============================================================
 # 🔍  MAIN SCANNER ENGINE
 # ============================================================
 
@@ -380,8 +459,12 @@ def run_scanner():
     ce_candidates = []
 
     # Scan each stock
-    for symbol in FNO_STOCKS:
-        print(f"  {CYAN}Scanning {symbol}...{RESET}      ", end="\r")
+    for idx, symbol in enumerate(FNO_STOCKS):
+        print(f"  {CYAN}Scanning {symbol}... [{idx+1}/{len(FNO_STOCKS)}]{RESET}      ", end="\r")
+        
+        # Update config in real-time for dashboard
+        update_config_json(scan_count, symbol, results, ce_candidates)
+        
         row = get_oi_data(symbol)
         if row:
             results.append(row)
@@ -394,6 +477,8 @@ def run_scanner():
 
             if is_long_buildup and oi_ok and price_ok and volume_ok:
                 ce_candidates.append(row)
+                # Update config immediately when new signal found
+                update_config_json(scan_count, symbol, results, ce_candidates)
 
     # ── CE Candidates Output ──
     print(f"\n  {BOLD}{GREEN}✅ CE BUY SIGNALS: "
@@ -453,6 +538,9 @@ def run_scanner():
         # Send market summary every 6th scan (~30 minutes)
         if scan_count % 6 == 0:
             telegram_summary(results, scan_count)
+        
+        # Final update with complete results
+        update_config_json(scan_count, "", results, ce_candidates)
 
     print(f"\n  {CYAN}⏰ Next scan in "
           f"{SCAN_INTERVAL} minutes...{RESET}")

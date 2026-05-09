@@ -4,17 +4,18 @@
 ![Python](https://img.shields.io/badge/python-3.7%2B-brightgreen)
 ![License](https://img.shields.io/badge/license-free%20to%20use-green)
 
-> **Free, automated Open Interest screener for NSE FNO stocks.** Scans for CE call buying opportunities using real-time OI + Price + Volume analysis. Sends alerts via Telegram every 5 minutes.
+> **Free, automated Open Interest screener for NSE FNO stocks.** Scans for CE call buying opportunities using real-time OI + Price + Volume analysis. Sends alerts via Telegram every 5 minutes during market hours.
 
 ## 🎯 What is OISignalFlow?
 
-OISignalFlow is an intelligent options screener that detects **long buildup signals** in NSE FNO stocks:
+OISignalFlow is an intelligent command-line options screener that detects **long buildup signals** in NSE FNO stocks:
 
-- 📊 **Real-time Analysis** — Scans 40 FNO stocks every 5 minutes
+- 📊 **Real-time Analysis** — Scans 209 FNO stocks every 5 minutes
 - 🟢 **CE Buy Signals** — Identifies high-probability call buying opportunities  
 - 📈 **OI Buildup Detection** — Combines OI + Price + Volume analysis
 - 📱 **Telegram Alerts** — Get instant notifications on your phone
 - 💾 **Excel Export** — All results saved automatically
+- ⏰ **Market Hours Only** — Runs 9:15 AM - 3:30 PM IST (Mon-Fri)
 - 🎨 **Zero Cost** — Free NSE data (no paid APIs)
 
 ### Signal Types
@@ -67,7 +68,7 @@ You'll see:
 ```
 ✅ OISignalFlow starting...
 📁 Config   : .env
-📊 Stocks   : 40 FNO stocks
+📊 Stocks   : 209 FNO stocks (from API)
 ⏱ Interval  : Every 5 minutes
 📈 OI Min   : 2.0%
 💾 Excel    : OISignalFlow_Results.xlsx
@@ -76,6 +77,22 @@ You'll see:
 Testing Telegram connection...
 ✅ Telegram alert sent!
 ```
+
+### 5. Open Dashboard (NEW!)
+```bash
+# Open the professional HTML dashboard
+open dashboard.html
+```
+
+**Modern Dashboard Features:**
+- ✨ Dark theme with gradient colors and smooth animations
+- 📱 Fully responsive for all screen sizes
+- 📈 Live market status with auto-updating indicators
+- ⚙️ Configuration settings display
+- 🎯 Key statistics and metrics
+- 🚀 Quick action buttons and links
+
+See [DASHBOARD.md](DASHBOARD.md) for full dashboard documentation.
 
 ## 📋 Configuration
 
@@ -165,12 +182,14 @@ The number of stocks scanned is displayed at startup: `📊 Stocks : XXX FNO sto
 ```
 OISignalFlow/
 ├── OISignalFlow.py              # Main scanner script
+├── dashboard.html               # Professional dashboard (NEW!)
 ├── requirements.txt             # Python dependencies
 ├── .env                         # Your config (NEVER commit!)
 ├── .env.example                 # Config template
 ├── .gitignore                   # Git ignore rules
 ├── README.md                    # This file
 ├── SETUP.md                     # Detailed setup guide
+├── DASHBOARD.md                 # Dashboard documentation
 ├── FILES.md                     # File documentation
 └── OISignalFlow_Results.xlsx    # Auto-generated results
 ```
