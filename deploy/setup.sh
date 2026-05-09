@@ -61,7 +61,15 @@ fi
 
 # ── Step 3: Install Python requirements ─────────────────────
 info "Step 3/6 — Installing Python requirements..."
+
+# Upgrade pip first
 "$PROJECT_DIR/venv/bin/pip" install --quiet --upgrade pip
+
+# Install setuptools + wheel BEFORE requirements — required on Python 3.12+
+# (pkg_resources is part of setuptools; venvs on 3.12 don't include it by default)
+"$PROJECT_DIR/venv/bin/pip" install --quiet --upgrade setuptools wheel
+
+# Now install all project requirements
 "$PROJECT_DIR/venv/bin/pip" install --quiet -r "$PROJECT_DIR/requirements.txt"
 success "Python packages installed"
 
