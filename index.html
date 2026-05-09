@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OISignalFlow — Live Monitoring Dashboard</title>
+  <link rel="stylesheet" href="styles.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>" />
+</head>
+<body>
+
+  <!-- ═══════════════════ HEADER ═══════════════════ -->
+  <header class="header">
+    <div class="header-left">
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Toggle Sidebar">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <div class="logo-text">
+          <span class="logo-title">OISignalFlow</span>
+          <span class="logo-sub">Live Monitor v1.0</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="header-center">
+      <div class="market-badge" id="marketBadge">
+        <span class="market-dot" id="marketDot"></span>
+        <span id="marketStatusText">Checking market...</span>
+      </div>
+    </div>
+
+    <div class="header-right">
+      <div class="live-clock" id="liveClock">00:00:00</div>
+      <div class="connection-status" id="connectionStatus">
+        <span class="conn-dot" id="connDot"></span>
+        <span class="conn-text" id="connText">Connecting...</span>
+      </div>
+      <button class="sound-btn" id="soundBtn" title="Toggle Alert Sounds">🔊</button>
+    </div>
+  </header>
+
+  <!-- ═══════════════════ LAYOUT ═══════════════════ -->
+  <div class="layout">
+
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
+      <nav class="sidebar-nav">
+        <a href="#" class="nav-item active" data-section="overview">
+          <span class="nav-icon">📊</span>
+          <span class="nav-label">Overview</span>
+        </a>
+        <a href="#" class="nav-item" data-section="signals">
+          <span class="nav-icon">🎯</span>
+          <span class="nav-label">Live Signals</span>
+          <span class="nav-badge" id="signalsBadge" style="display:none">0</span>
+        </a>
+        <a href="#" class="nav-item" data-section="scanner">
+          <span class="nav-icon">🔍</span>
+          <span class="nav-label">Scanner</span>
+          <span class="nav-pulse" id="scannerPulse"></span>
+        </a>
+        <a href="#" class="nav-item" data-section="stats">
+          <span class="nav-icon">📈</span>
+          <span class="nav-label">Statistics</span>
+        </a>
+        <a href="#" class="nav-item" data-section="results">
+          <span class="nav-icon">📋</span>
+          <span class="nav-label">All Results</span>
+        </a>
+        <a href="#" class="nav-item" data-section="config">
+          <span class="nav-icon">⚙️</span>
+          <span class="nav-label">Configuration</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sf-row">
+          <span class="sf-label">Last Update</span>
+          <span class="sf-value" id="sidebarLastUpdate">—</span>
+        </div>
+        <div class="sf-row">
+          <span class="sf-label">System</span>
+          <span class="sf-value" id="sidebarSystem">—</span>
+        </div>
+      </div>
+    </aside>
+
+    <!-- ── Main Content ── -->
+    <main class="main-content">
+
+      <!-- ════════════════ OVERVIEW ════════════════ -->
+      <section class="section active" id="section-overview">
+        <div class="section-header">
+          <h2>📊 Dashboard Overview</h2>
+          <div class="section-meta" id="overviewMeta">Loading...</div>
+        </div>
+
+        <!-- KPI Row -->
+        <div class="kpi-grid">
+          <div class="kpi-card kpi-cyan">
+            <div class="kpi-icon-wrap">🔍</div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="kpiScans">0</div>
+              <div class="kpi-label">Total Scans</div>
+            </div>
+            <div class="kpi-glow cyan-glow"></div>
+          </div>
+          <div class="kpi-card kpi-green">
+            <div class="kpi-icon-wrap">🎯</div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="kpiSignals">0</div>
+              <div class="kpi-label">CE Signals Found</div>
+            </div>
+            <div class="kpi-glow green-glow"></div>
+          </div>
+          <div class="kpi-card kpi-purple">
+            <div class="kpi-icon-wrap">📊</div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="kpiStocks">0</div>
+              <div class="kpi-label">FNO Stocks Watched</div>
+            </div>
+            <div class="kpi-glow purple-glow"></div>
+          </div>
+          <div class="kpi-card kpi-mood" id="kpiMoodCard">
+            <div class="kpi-icon-wrap">🌡️</div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="kpiMood">NEUTRAL</div>
+              <div class="kpi-label">Market Mood</div>
+            </div>
+            <div class="kpi-glow mood-glow"></div>
+          </div>
+        </div>
+
+        <!-- Three-column row -->
+        <div class="overview-row">
+
+          <!-- Market Info -->
+          <div class="card">
+            <div class="card-head">
+              <span>🏦 Market Information</span>
+            </div>
+            <div class="market-info-grid">
+              <div class="mi-item">
+                <span class="mi-label">Market Status</span>
+                <span class="mi-val" id="miStatus">—</span>
+              </div>
+              <div class="mi-item">
+                <span class="mi-label">API Source</span>
+                <span class="mi-val" id="miApi">—</span>
+              </div>
+              <div class="mi-item">
+                <span class="mi-label">FNO Stocks</span>
+                <span class="mi-val" id="miFno">—</span>
+              </div>
+              <div class="mi-item">
+                <span class="mi-label">Data Type</span>
+                <span class="mi-val" id="miData">—</span>
+              </div>
+              <div class="mi-item">
+                <span class="mi-label">Period</span>
+                <span class="mi-val" id="miPeriod">—</span>
+              </div>
+              <div class="mi-item">
+                <span class="mi-label">API Status</span>
+                <span class="mi-val" id="miApiStatus">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Signal Distribution -->
+          <div class="card">
+            <div class="card-head"><span>🔰 Signal Distribution</span></div>
+            <div class="dist-list">
+              <div class="dist-row">
+                <span class="dist-dot d-green"></span>
+                <span class="dist-name">Long Buildup</span>
+                <div class="dist-bar-track"><div class="dist-bar db-green" id="dbarLong"></div></div>
+                <span class="dist-cnt" id="dcntLong">0</span>
+              </div>
+              <div class="dist-row">
+                <span class="dist-dot d-red"></span>
+                <span class="dist-name">Short Buildup</span>
+                <div class="dist-bar-track"><div class="dist-bar db-red" id="dbarShort"></div></div>
+                <span class="dist-cnt" id="dcntShort">0</span>
+              </div>
+              <div class="dist-row">
+                <span class="dist-dot d-yellow"></span>
+                <span class="dist-name">Short Covering</span>
+                <div class="dist-bar-track"><div class="dist-bar db-yellow" id="dbarCovering"></div></div>
+                <span class="dist-cnt" id="dcntCovering">0</span>
+              </div>
+              <div class="dist-row">
+                <span class="dist-dot d-gray"></span>
+                <span class="dist-name">Long Unwinding</span>
+                <div class="dist-bar-track"><div class="dist-bar db-gray" id="dbarUnwinding"></div></div>
+                <span class="dist-cnt" id="dcntUnwinding">0</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scanner Mini -->
+          <div class="card">
+            <div class="card-head">
+              <span>⚡ Scanner Live</span>
+              <div class="pulse-dot" id="miniScanDot"></div>
+            </div>
+            <div class="scanner-mini">
+              <div class="sm-status" id="smStatus">READY</div>
+              <div class="sm-stock" id="smStock">Waiting for scan...</div>
+              <div class="sm-progress-track">
+                <div class="sm-progress-fill" id="smProgressFill"></div>
+              </div>
+              <div class="sm-progress-text" id="smProgressText">0 / 0 stocks</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent CE Signals -->
+        <div class="card">
+          <div class="card-head">
+            <span>🟢 Latest CE Buy Signals</span>
+            <button class="link-btn" onclick="switchSection('signals')">View All →</button>
+          </div>
+          <div class="recent-grid" id="recentGrid">
+            <div class="empty-state">
+              <div class="es-icon">🔍</div>
+              <div class="es-text">No CE signals yet — scanner is running</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════════ LIVE SIGNALS ════════════════ -->
+      <section class="section" id="section-signals">
+        <div class="section-header">
+          <h2>🎯 Live CE Buy Signals</h2>
+          <div class="section-meta" id="signalsMeta">0 signals found</div>
+        </div>
+        <div class="signals-grid" id="signalsGrid">
+          <div class="empty-state large">
+            <div class="es-icon">🎯</div>
+            <div class="es-text">No CE signals detected yet</div>
+            <div class="es-sub">Long Buildup + OI↑ + Price↑ + Volume↑ conditions trigger alerts here</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════════ SCANNER ════════════════ -->
+      <section class="section" id="section-scanner">
+        <div class="section-header">
+          <h2>🔍 Scanner Status</h2>
+          <div class="section-meta" id="scannerMeta">Scan #0</div>
+        </div>
+
+        <div class="scanner-top-grid">
+          <!-- Live Status -->
+          <div class="card scanner-live-card">
+            <div class="card-head"><span>⚡ Live Status</span></div>
+            <div class="scanner-live-body">
+              <div class="scan-ring-wrap">
+                <div class="scan-ring" id="scanRing"></div>
+                <div class="scan-ring-text" id="scanRingText">READY</div>
+              </div>
+              <div class="scan-stock-info">
+                <div class="ssi-label">Currently Scanning</div>
+                <div class="ssi-stock" id="ssiStock">—</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Progress -->
+          <div class="card">
+            <div class="card-head"><span>📊 Scan Progress</span></div>
+            <div class="scan-progress-body">
+              <div class="spb-nums">
+                <span class="spb-current" id="spbCurrent">0</span>
+                <span class="spb-sep">/</span>
+                <span class="spb-total" id="spbTotal">209</span>
+              </div>
+              <div class="spb-bar-track">
+                <div class="spb-bar" id="spbBar"></div>
+                <span class="spb-pct" id="spbPct">0%</span>
+              </div>
+              <div class="spb-meta">
+                <span>Scan #<span id="spbScanNum">0</span></span>
+                <span id="spbInterval">Every 5 min</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filter Table -->
+        <div class="card mt16">
+          <div class="card-head">
+            <span>🔎 Per-Stock Filter Results</span>
+            <div class="filter-legend">
+              <span><span class="fbadge fb-green">SIG</span> Signal OK</span>
+              <span><span class="fbadge fb-cyan">OI</span> OI ≥ min</span>
+              <span><span class="fbadge fb-purple">PR</span> Price ≥ min</span>
+              <span><span class="fbadge fb-orange">VOL</span> Volume ≥ mult</span>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table" id="filterTable">
+              <thead>
+                <tr>
+                  <th>Symbol</th>
+                  <th>Price (₹)</th>
+                  <th>Price Chg%</th>
+                  <th>OI Chg%</th>
+                  <th>Vol Ratio</th>
+                  <th>Signal</th>
+                  <th>Filters</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="filterTbody">
+                <tr><td colspan="8" class="td-empty">No scan data yet — start OISignalFlow.py</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════════ STATISTICS ════════════════ -->
+      <section class="section" id="section-stats">
+        <div class="section-header">
+          <h2>📈 Statistics</h2>
+          <div class="section-meta" id="statsMeta">All-time scan stats</div>
+        </div>
+
+        <div class="stats-grid">
+          <!-- Breakdown -->
+          <div class="card stats-breakdown">
+            <div class="card-head"><span>🔰 Signal Type Breakdown</span></div>
+            <div class="breakdown-list">
+              <div class="bk-item">
+                <span class="bk-emoji">🟢</span>
+                <div class="bk-info">
+                  <div class="bk-name">Long Buildup</div>
+                  <div class="bk-desc">Price ↑ + OI ↑ — Best CE signal</div>
+                </div>
+                <div class="bk-count green-text" id="bkLong">0</div>
+              </div>
+              <div class="bk-item">
+                <span class="bk-emoji">🔴</span>
+                <div class="bk-info">
+                  <div class="bk-name">Short Buildup</div>
+                  <div class="bk-desc">Price ↓ + OI ↑ — Consider PE</div>
+                </div>
+                <div class="bk-count red-text" id="bkShort">0</div>
+              </div>
+              <div class="bk-item">
+                <span class="bk-emoji">🟡</span>
+                <div class="bk-info">
+                  <div class="bk-name">Short Covering</div>
+                  <div class="bk-desc">Price ↑ + OI ↓ — Weak signal</div>
+                </div>
+                <div class="bk-count yellow-text" id="bkCovering">0</div>
+              </div>
+              <div class="bk-item">
+                <span class="bk-emoji">⚪</span>
+                <div class="bk-info">
+                  <div class="bk-name">Long Unwinding</div>
+                  <div class="bk-desc">Price ↓ + OI ↓ — Avoid</div>
+                </div>
+                <div class="bk-count muted-text" id="bkUnwinding">0</div>
+              </div>
+            </div>
+            <!-- Proportional bar -->
+            <div class="prop-bar" id="propBar">
+              <div class="pb-seg pb-green" id="pbGreen"></div>
+              <div class="pb-seg pb-red" id="pbRed"></div>
+              <div class="pb-seg pb-yellow" id="pbYellow"></div>
+              <div class="pb-seg pb-gray" id="pbGray"></div>
+            </div>
+          </div>
+
+          <!-- Market Mood -->
+          <div class="card">
+            <div class="card-head"><span>🌡️ Market Mood</span></div>
+            <div class="mood-body">
+              <div class="mood-gauge-wrap">
+                <div class="mood-gauge">
+                  <div class="mg-needle" id="mgNeedle"></div>
+                </div>
+                <div class="mg-labels">
+                  <span>BEARISH</span><span>NEUTRAL</span><span>BULLISH</span>
+                </div>
+              </div>
+              <div class="mood-big-text" id="moodBigText">NEUTRAL</div>
+              <div class="mood-counts">
+                <div class="mc-item">
+                  <span class="mc-val green-text" id="mcBull">0</span>
+                  <span class="mc-label">Bullish</span>
+                </div>
+                <div class="mc-divider">|</div>
+                <div class="mc-item">
+                  <span class="mc-val red-text" id="mcBear">0</span>
+                  <span class="mc-label">Bearish</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scan Metrics -->
+          <div class="card">
+            <div class="card-head"><span>🔍 Scan Metrics</span></div>
+            <div class="metrics-list">
+              <div class="metric-row">
+                <span class="mr-label">Total Scans Run</span>
+                <span class="mr-val" id="mrScans">0</span>
+              </div>
+              <div class="metric-row">
+                <span class="mr-label">Stocks Per Scan</span>
+                <span class="mr-val" id="mrStocksPerScan">0</span>
+              </div>
+              <div class="metric-row">
+                <span class="mr-label">CE Signals Found</span>
+                <span class="mr-val green-text" id="mrCE">0</span>
+              </div>
+              <div class="metric-row">
+                <span class="mr-label">Signal Hit Rate</span>
+                <span class="mr-val" id="mrHitRate">0.0%</span>
+              </div>
+              <div class="metric-row">
+                <span class="mr-label">Scan Interval</span>
+                <span class="mr-val" id="mrInterval">5 min</span>
+              </div>
+              <div class="metric-row">
+                <span class="mr-label">Stocks Scanned</span>
+                <span class="mr-val" id="mrScanned">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════════════════ ALL RESULTS ════════════════ -->
+      <section class="section" id="section-results">
+        <div class="section-header">
+          <h2>📋 All Scan Results</h2>
+          <div class="section-actions">
+            <input type="text" class="search-input" id="resultsSearch" placeholder="🔍 Search symbol..." />
+            <select class="filter-select" id="resultsFilter">
+              <option value="all">All Signals</option>
+              <option value="ce">CE Candidates ✦</option>
+              <option value="long">Long Buildup 🟢</option>
+              <option value="short">Short Buildup 🔴</option>
+              <option value="covering">Short Covering 🟡</option>
+              <option value="unwinding">Long Unwinding ⚪</option>
+            </select>
+          </div>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table class="data-table sortable-table" id="resultsTable">
+              <thead>
+                <tr>
+                  <th data-sort="symbol">Symbol <span class="sort-arrow">↕</span></th>
+                  <th data-sort="price">Price <span class="sort-arrow">↕</span></th>
+                  <th data-sort="price_change">Price Chg% <span class="sort-arrow">↕</span></th>
+                  <th data-sort="oi_change">OI Chg% <span class="sort-arrow">↕</span></th>
+                  <th data-sort="volume_ratio">Vol Ratio <span class="sort-arrow">↕</span></th>
+                  <th>Signal</th>
+                  <th>CE Filters</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="resultsTbody">
+                <tr><td colspan="8" class="td-empty">No results yet — run OISignalFlow.py to begin</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="table-footer" id="resultsFooter"></div>
+        </div>
+      </section>
+
+      <!-- ════════════════ CONFIGURATION ════════════════ -->
+      <section class="section" id="section-config">
+        <div class="section-header">
+          <h2>⚙️ Configuration</h2>
+          <div class="section-meta">Live settings from config.json</div>
+        </div>
+
+        <div class="config-grid">
+          <!-- Scan Params -->
+          <div class="card">
+            <div class="card-head"><span>📊 Scan Parameters</span></div>
+            <div class="cfg-list">
+              <div class="cfg-row">
+                <div class="cfg-info">
+                  <span class="cfg-name">OI Change Minimum</span>
+                  <span class="cfg-desc">Minimum OI change % required for alert</span>
+                </div>
+                <span class="cfg-val" id="cfgOi">—</span>
+              </div>
+              <div class="cfg-row">
+                <div class="cfg-info">
+                  <span class="cfg-name">Price Change Minimum</span>
+                  <span class="cfg-desc">Minimum price change % required</span>
+                </div>
+                <span class="cfg-val" id="cfgPrice">—</span>
+              </div>
+              <div class="cfg-row">
+                <div class="cfg-info">
+                  <span class="cfg-name">Volume Multiplier</span>
+                  <span class="cfg-desc">Volume must be X times the previous candle</span>
+                </div>
+                <span class="cfg-val" id="cfgVol">—</span>
+              </div>
+              <div class="cfg-row">
+                <div class="cfg-info">
+                  <span class="cfg-name">Scan Interval</span>
+                  <span class="cfg-desc">How often the scanner runs</span>
+                </div>
+                <span class="cfg-val" id="cfgInterval">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- API Config -->
+          <div class="card">
+            <div class="card-head"><span>📡 API Configuration</span></div>
+            <div class="cfg-list">
+              <div class="cfg-row">
+                <div class="cfg-info">
+                  <span class="cfg-name">API Source</span>
+                  <span class="cfg-desc">Data provider library</span>
+                </div>
+                <span class="cfg-val" id="cfgApiSource">—</span>
+              </div>
+              <div class="cfg-row">
+                <div class="cfg-info">
+                  <span class="cfg-name">API Status</span>
+                  <span class="cfg-desc">Current connection state</span>
+                </div>
+                <span class="cfg-val cfg-status" id="cfgApiStatus">—</span>
+              </div>
+              <div class="cfg-row">
+                <div class="cfg-info">
+                  <span class="cfg-name">Data Type</span>
+                  <span class="cfg-desc">Instrument type scanned</span>
+                </div>
+                <span class="cfg-val" id="cfgDataType">—</span>
+              </div>
+              <div class="cfg-row">
+                <div class="cfg-info">
+                  <span class="cfg-name">Candle Period</span>
+                  <span class="cfg-desc">Timeframe for OI data</span>
+                </div>
+                <span class="cfg-val" id="cfgPeriod">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Output & Alerts -->
+          <div class="card">
+            <div class="card-head"><span>💾 Output &amp; Alerts</span></div>
+            <div class="cfg-list">
+              <div class="cfg-row">
+                <div class="cfg-info">
+                  <span class="cfg-name">Output File</span>
+                  <span class="cfg-desc">Excel results file name</span>
+                </div>
+                <span class="cfg-val" id="cfgOutput">—</span>
+              </div>
+              <div class="cfg-row">
+                <div class="cfg-info">
+                  <span class="cfg-name">Telegram Alerts</span>
+                  <span class="cfg-desc">Bot notification status</span>
+                </div>
+                <span class="cfg-val cfg-bool" id="cfgTelegram">—</span>
+              </div>
+              <div class="cfg-row">
+                <div class="cfg-info">
+                  <span class="cfg-name">Desktop Notifications</span>
+                  <span class="cfg-desc">OS system alert popups</span>
+                </div>
+                <span class="cfg-val cfg-bool" id="cfgDesktop">—</span>
+              </div>
+              <div class="cfg-row">
+                <div class="cfg-info">
+                  <span class="cfg-name">FNO Stocks Watched</span>
+                  <span class="cfg-desc">Total stocks in watchlist</span>
+                </div>
+                <span class="cfg-val" id="cfgFno">—</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- System Status -->
+          <div class="card">
+            <div class="card-head"><span>🖥️ System Status</span></div>
+            <div class="sys-grid">
+              <div class="sys-tile">
+                <span class="sys-tile-label">Scanner</span>
+                <span class="sys-tile-val" id="sysScannerVal">—</span>
+              </div>
+              <div class="sys-tile">
+                <span class="sys-tile-label">System</span>
+                <span class="sys-tile-val" id="sysSystemVal">—</span>
+              </div>
+              <div class="sys-tile">
+                <span class="sys-tile-label">Market</span>
+                <span class="sys-tile-val" id="sysMarketVal">—</span>
+              </div>
+              <div class="sys-tile" style="grid-column:1/-1">
+                <span class="sys-tile-label">Last Update</span>
+                <span class="sys-tile-val small-val" id="sysLastUpdate">—</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Toast Container -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <!-- Mobile Sidebar Overlay -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
