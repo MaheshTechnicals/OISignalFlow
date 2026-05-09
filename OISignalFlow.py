@@ -63,10 +63,11 @@ LOG_LEVEL         = os.getenv('LOG_LEVEL', 'INFO')                  # DEBUG, INF
 
 
 # ============================================================
-# 📋  FNO STOCKS WATCHLIST
+# 📋  FNO STOCKS WATCHLIST — FETCHED FROM API
 # ============================================================
 
-FNO_STOCKS = [
+# Fallback list if API is unavailable
+FALLBACK_FNO_STOCKS = [
     "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK",
     "SBIN", "BAJFINANCE", "HINDUNILVR", "AXISBANK", "WIPRO",
     "TATAMOTORS", "MARUTI", "SUNPHARMA", "ONGC", "POWERGRID",
@@ -76,6 +77,25 @@ FNO_STOCKS = [
     "ADANIENT", "ADANIPORTS", "COALINDIA", "BPCL", "GRASIM",
     "HEROMOTOCO", "INDUSINDBK", "JSWSTEEL", "TATASTEEL", "LT"
 ]
+
+def fetch_fno_stocks():
+    """Fetch all FNO stocks from NSE API"""
+    try:
+        url = "https://nse-result-calendar.netlify.app/api/fno-list"
+        response = requests.get(url, timeout=10)
+        if response.status_code == 200:
+            data = response.json()
+            stocks = data.get('symbols', [])
+            if stocks:
+                print(f"  {GREEN}✅ Fetched {len(stocks)} FNO stocks from API{RESET}")
+                return sorted(stocks)
+        return None
+    except Exception as e:
+        print(f"  {YELLOW}⚠️  Could not fetch from API: {e}{RESET}")
+        return None
+
+# Fetch FNO stocks from API, fallback to hardcoded list
+FNO_STOCKS = fetch_fno_stocks() or FALLBACK_FNO_STOCKS
 
 
 # ============================================================
@@ -512,9 +532,11 @@ if __name__ == "__main__":
 
     print(f"{GREEN}✅ OISignalFlow starting...{RESET}\n")
     print(f"  📁 Config   : .env")
-    print(f"  📊 Stocks   : {len(FNO_STOCKS)} FNO stocks")
+    print(f"  📊 Stocks   : {len(FNO_STOCKS)} FNO stocks (from API)")
     print(f"  ⏱ Interval  : Every {SCAN_INTERVAL} minutes")
     print(f"  📈 OI Min   : {OI_CHANGE_MIN}%")
+    print(f"  💹 Price Min: {PRICE_CHANGE_MIN}%")
+    print(f"  📦 Volume   : {VOLUME_MULT}x normal")
     print(f"  💾 Excel    : {OUTPUT_FILE}")
     print(f"  📱 Telegram : Enabled\n")
 

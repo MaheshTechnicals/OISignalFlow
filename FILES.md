@@ -52,6 +52,8 @@ All variables are loaded from `.env` file:
 | LOG_LEVEL | string | INFO | Logging level (DEBUG/INFO/WARNING/ERROR) |
 | ENABLE_DESKTOP_NOTIFICATIONS | bool | True | Desktop notification toggle |
 
+**Note:** FNO stocks are automatically fetched from API. No configuration needed.
+
 ## Dependencies
 
 - **schedule** — Job scheduling

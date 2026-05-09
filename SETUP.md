@@ -58,6 +58,16 @@ SCAN_INTERVAL=5
 OUTPUT_FILE=OISignalFlow_Results.xlsx
 ```
 
+## About FNO Stocks
+
+✅ **All FNO stocks are automatically fetched from NSE API:**
+- Fetches complete, up-to-date list at startup
+- Covers 100+ FNO stocks across all sectors
+- Falls back to 40 major stocks if API is unavailable
+- **No manual updates needed!**
+
+API: `https://nse-result-calendar.netlify.app/api/fno-list`
+
 ## Step 4: Run OISignalFlow
 
 ```bash

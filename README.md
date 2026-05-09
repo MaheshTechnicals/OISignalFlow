@@ -148,16 +148,17 @@ Every 30 minutes with market sentiment:
 
 ## 📊 Stocks Monitored
 
-40 major FNO stocks across sectors:
+**All FNO stocks are automatically fetched from NSE API!**
 
-**Banking:** HDFCBANK, ICICIBANK, SBIN, INDUSINDBK
-**IT:** TCS, INFY, WIPRO, HCLTECH, TECHM
-**Pharma:** SUNPHARMA, DRREDDY, CIPLA, DIVISLAB
-**Auto:** TATAMOTORS, MARUTI, HEROMOTOCO, M&M
-**Energy:** ONGC, BPCL, COALINDIA
-**Infra & Others:** RELIANCE, POWERGRID, NTPC, LT, LTIM, JSWSTEEL, ULTRACEMCO, etc.
+- 📡 **Real-time List** — Fetches complete list from: https://nse-result-calendar.netlify.app/api/fno-list
+- ✅ **Always Updated** — New FNO stocks are scanned automatically
+- 🔄 **Fallback System** — If API unavailable, uses 40 major stocks (banking, IT, pharma, auto, energy, etc.)
+- 🚀 **Zero Maintenance** — No need to update stock lists manually
 
-See `OISignalFlow.py` for complete list.
+**Covered Sectors:**
+- Banking, IT, Pharma, Auto, Energy, Infrastructure, FMCG, Metals, etc.
+
+The number of stocks scanned is displayed at startup: `📊 Stocks : XXX FNO stocks (from API)`
 
 ## 📁 Project Structure
 
