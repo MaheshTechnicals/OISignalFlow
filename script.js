@@ -190,8 +190,12 @@ function setConn(live, msg = '') {
 // Data Fetch + Poll
 // ─────────────────────────────────────────────
 async function fetchConfig() {
+  // window.OISF_API is set by dashboard-config.js:
+  //   local dev  → 'config.json'  (relative, same folder)
+  //   production → 'http://VM_IP:8080/config.json'  (VM CORS server)
+  const API_URL = (window.OISF_API || 'config.json');
   try {
-    const res = await fetch('config.json?_=' + Date.now(), {
+    const res = await fetch(API_URL + (API_URL.includes('?') ? '&' : '?') + '_=' + Date.now(), {
       cache: 'no-store',
       headers: { 'Cache-Control': 'no-cache, no-store' }
     });

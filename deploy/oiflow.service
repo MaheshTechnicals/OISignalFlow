@@ -1,0 +1,44 @@
+# ============================================================
+# OISignalFlow — oiflow.service
+# systemd unit for the OISignalFlow Python scanner
+#
+# Install:
+#   sudo cp deploy/oiflow.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now oiflow
+# ============================================================
+
+[Unit]
+Description=OISignalFlow — NSE FNO OI Scanner
+Documentation=https://github.com/MaheshTechnicals/OISignalFlow
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+
+# Working dir = project root where OISignalFlow.py and .env live
+WorkingDirectory=/home/ubuntu/OISignalFlow
+
+# Load the .env file as environment variables
+EnvironmentFile=/home/ubuntu/OISignalFlow/.env
+
+# Use the venv Python to run the scanner
+ExecStart=/home/ubuntu/OISignalFlow/venv/bin/python OISignalFlow.py
+
+# Restart on failure (not on clean exit)
+Restart=on-failure
+RestartSec=15
+
+# Give the scanner time to finish a scan before force-stopping
+TimeoutStopSec=30
+
+# Logging — view with: sudo journalctl -u oiflow -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=oiflow
+
+[Install]
+WantedBy=multi-user.target

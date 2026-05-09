@@ -1,0 +1,38 @@
+# ============================================================
+# OISignalFlow — cors_server.service
+# systemd unit for the CORS HTTP server that exposes config.json
+# to the Netlify-hosted dashboard
+#
+# Install:
+#   sudo cp deploy/cors_server.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now cors_server
+# ============================================================
+
+[Unit]
+Description=OISignalFlow — CORS Config Server (port 8080)
+Documentation=https://github.com/MaheshTechnicals/OISignalFlow
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=ubuntu
+Group=ubuntu
+
+WorkingDirectory=/home/ubuntu/OISignalFlow
+
+# Use the same venv as the scanner
+ExecStart=/home/ubuntu/OISignalFlow/venv/bin/python deploy/cors_server.py
+
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=10
+
+# Logging — view with: sudo journalctl -u cors_server -f
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=cors_server
+
+[Install]
+WantedBy=multi-user.target
