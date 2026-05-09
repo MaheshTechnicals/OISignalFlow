@@ -1,24 +1,24 @@
 # ============================================================
 # OISignalFlow Requirements
+# Compatible with Python 3.12+ (tested on Ubuntu 22.04/24.04)
 # ============================================================
-# Install dependencies using: pip install -r requirements.txt
+# Install: pip install -r requirements.txt
+
+# Build tools — must be first on Python 3.12 (pkg_resources fix)
+setuptools>=68.0.0
+wheel>=0.41.0
 
 # Core libraries
-schedule==1.2.0          # Job scheduling
-requests==2.31.0        # HTTP requests for Telegram API
-pandas==2.0.3            # Data analysis and DataFrame operations
-python-dotenv==1.0.0    # Load environment variables from .env
+schedule>=1.2.0           # Job scheduling
+requests>=2.31.0          # HTTP requests for Telegram API
+pandas>=2.1.0             # Data analysis — 2.1.0+ has Python 3.12 wheels
+python-dotenv>=1.0.0      # Load environment variables from .env
 
 # NSE Data
-nselib==0.7.0            # NSE India data fetcher
+nselib>=0.7.0             # NSE India data fetcher (free NSE API)
 
 # Notifications
-plyer==2.1.0             # Cross-platform desktop notifications
+plyer>=2.1.0              # Cross-platform desktop notifications
 
 # Excel support
-openpyxl==3.1.2          # Write Excel files
-
-# Optional dependencies for development
-# pytest==7.4.0           # Testing framework
-# black==23.7.0           # Code formatter
-# pylint==2.17.5          # Code linter
+openpyxl>=3.1.2           # Write Excel files

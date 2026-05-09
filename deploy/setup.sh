@@ -52,24 +52,25 @@ success "System packages installed"
 info "Step 2/6 — Creating Python virtual environment..."
 cd "$PROJECT_DIR"
 
+# Always recreate venv — prevents stale/broken state from previous runs
 if [ -d "venv" ]; then
-    warn "venv already exists — skipping creation"
-else
-    python3 -m venv venv
-    success "virtualenv created at $PROJECT_DIR/venv"
+    warn "Removing old venv to ensure clean install..."
+    rm -rf venv
 fi
+python3 -m venv venv
+success "virtualenv created at $PROJECT_DIR/venv"
 
 # ── Step 3: Install Python requirements ─────────────────────
 info "Step 3/6 — Installing Python requirements..."
 
-# Upgrade pip first
+# 1. Upgrade pip to latest (old pip can't find Python 3.12 wheels)
 "$PROJECT_DIR/venv/bin/pip" install --quiet --upgrade pip
 
-# Install setuptools + wheel BEFORE requirements — required on Python 3.12+
-# (pkg_resources is part of setuptools; venvs on 3.12 don't include it by default)
+# 2. setuptools + wheel MUST come first on Python 3.12+
+#    (pkg_resources lives in setuptools — not included in 3.12 venvs by default)
 "$PROJECT_DIR/venv/bin/pip" install --quiet --upgrade setuptools wheel
 
-# Now install all project requirements
+# 3. Install all project requirements
 "$PROJECT_DIR/venv/bin/pip" install --quiet -r "$PROJECT_DIR/requirements.txt"
 success "Python packages installed"
 
