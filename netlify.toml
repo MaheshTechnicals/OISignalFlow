@@ -11,6 +11,10 @@
 # Netlify proxies server-side to the VM (HTTP) — no mixed content.
 [[redirects]]
   from   = "/api/config.json"
+  # ⚠️  VM IP is hardcoded below.
+  # If your DigitalOcean VM IP changes, update this URL
+  # then: git add netlify.toml && git commit -m "Update VM IP"
+  #        && git push origin main  (Netlify auto-redeploys)
   to     = "http://167.71.224.25:8080/config.json"
   status = 200
   force  = true

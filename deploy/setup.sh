@@ -72,6 +72,10 @@ info "Step 3/6 — Installing Python requirements..."
 
 # 3. Install all project requirements
 "$PROJECT_DIR/venv/bin/pip" install --quiet -r "$PROJECT_DIR/requirements.txt"
+# NOTE: plyer installs fine on headless servers.
+# Desktop notifications are automatically disabled
+# via ENABLE_DESKTOP_NOTIFICATIONS=False in your .env
+# No action needed — this is expected behaviour.
 success "Python packages installed"
 
 # ── Step 4: systemd service files ───────────────────────────

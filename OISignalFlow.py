@@ -90,6 +90,7 @@ REQUEST_DELAY     = float(os.getenv('REQUEST_DELAY', '0.3'))      # Seconds betw
 # ADX Trend Filter  (Issue 8)
 ENABLE_ADX_FILTER = os.getenv('ENABLE_ADX_FILTER', 'False') == 'True'
 ADX_MIN           = float(os.getenv('ADX_MIN', '25.0'))           # Min ADX for strong trend
+ADX_PERIOD        = int(os.getenv('ADX_PERIOD', '14'))            # Standard ADX period — 14 is the industry default
 
 # Logging
 LOG_LEVEL         = os.getenv('LOG_LEVEL', 'INFO')
@@ -201,7 +202,7 @@ def telegram_startup():
         f"⏳ API Delay : {REQUEST_DELAY}s between requests\n"
     )
     if ENABLE_ADX_FILTER:
-        msg += f"📉 ADX Filter : Enabled (min {ADX_MIN})\n"
+        msg += f"📉 ADX Filter : Enabled (min {ADX_MIN}, period {ADX_PERIOD})\n"
     msg += (
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         "✅ Scanning for Long Buildup signals\n"
@@ -456,7 +457,7 @@ def get_oi_data(symbol):
         vol_ratio     = current_vol / prev_vol
 
         # ADX — only compute when filter is enabled (saves CPU)  (Issue 8)
-        adx_value = calculate_adx(data) if ENABLE_ADX_FILTER else 0.0
+        adx_value = calculate_adx(data, period=ADX_PERIOD) if ENABLE_ADX_FILTER else 0.0
 
         return {
             'Symbol'       : symbol,
@@ -836,7 +837,7 @@ if __name__ == "__main__":
     print(f"  📦 Volume    : {VOLUME_MULT}x normal")
     print(f"  ⏳ API Delay : {REQUEST_DELAY}s between requests")
     if ENABLE_ADX_FILTER:
-        print(f"  📉 ADX Filter: Enabled (min {ADX_MIN})")
+        print(f"  📉 ADX Filter: Enabled (min {ADX_MIN}, period {ADX_PERIOD})")
     else:
         print(f"  📉 ADX Filter: Disabled")
     print(f"  💾 Excel     : {OUTPUT_FILE}")
