@@ -70,11 +70,13 @@ function setClass(el, ...classes) {
 // Live Clock
 // ─────────────────────────────────────────────
 function tickClock() {
-  const now = new Date();
-  const hh = String(now.getHours()).padStart(2, '0');
-  const mm = String(now.getMinutes()).padStart(2, '0');
-  const ss = String(now.getSeconds()).padStart(2, '0');
-  setText('liveClock', `${hh}:${mm}:${ss}`);
+  const now  = new Date();
+  const raw  = now.getHours();
+  const ampm = raw >= 12 ? 'PM' : 'AM';
+  const hh   = String(raw % 12 || 12).padStart(2, '0');
+  const mm   = String(now.getMinutes()).padStart(2, '0');
+  const ss   = String(now.getSeconds()).padStart(2, '0');
+  setText('liveClock', `${hh}:${mm}:${ss} ${ampm}`);
 }
 setInterval(tickClock, 500);
 tickClock();
@@ -793,9 +795,43 @@ document.addEventListener('keydown', e => {
 });
 
 // ─────────────────────────────────────────────
+// Table Scroll Hint
+// Adds .table-scroll-hint class and removes right-fade
+// when the user has scrolled to the end of the table.
+// ─────────────────────────────────────────────
+function initTableScrollHints() {
+  document.querySelectorAll('.table-wrap').forEach(wrap => {
+    // Add hint class so CSS ::after fade is active
+    wrap.classList.add('table-scroll-hint');
+
+    function updateHint() {
+      // scrolledEnd = within 4px of right edge
+      const atEnd = wrap.scrollLeft + wrap.clientWidth >= wrap.scrollWidth - 4;
+      wrap.classList.toggle('scrolled-end', atEnd);
+    }
+
+    wrap.addEventListener('scroll', updateHint, { passive: true });
+    // Run once after data renders (slight delay for layout)
+    setTimeout(updateHint, 300);
+  });
+}
+
+// Re-run hints after table data updates (tables get innerHTML replaced)
+const _origRenderFilter  = renderFilterTable;
+const _origRenderResults = renderResultsTable;
+
+// ─────────────────────────────────────────────
+// Keyboard shortcut: Alt+S = sound toggle
+// ─────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.altKey && e.key === 's') $('soundBtn').click();
+});
+
+// ─────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  initTableScrollHints();
   startPolling();
 
   toast(

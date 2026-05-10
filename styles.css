@@ -559,7 +559,34 @@ body::before {
 /* ═══════════════════════════════════════════
    DATA TABLES
    ═══════════════════════════════════════════ */
-.table-wrap { overflow-x: auto; max-height: 500px; overflow-y: auto; }
+
+/* Scroll wrapper — scroll-fade hint on right edge shows table is scrollable */
+.table-wrap {
+  overflow-x: auto;
+  overflow-y: auto;
+  max-height: 500px;
+  width: 100%;
+  -webkit-overflow-scrolling: touch; /* smooth momentum scroll on iOS */
+  position: relative;
+}
+
+/* Subtle right-edge fade when table overflows — mobile scroll hint */
+.table-scroll-hint {
+  position: relative;
+}
+.table-scroll-hint::after {
+  content: '';
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 32px;
+  background: linear-gradient(to right, transparent, rgba(8,12,26,0.85));
+  pointer-events: none;
+  border-radius: 0 var(--radius) var(--radius) 0;
+  z-index: 4;
+  transition: opacity var(--trans);
+}
+.table-scroll-hint.scrolled-end::after { opacity: 0; }
+
 .data-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .data-table th {
   padding: 11px 14px; text-align: left;
@@ -580,7 +607,7 @@ body::before {
   vertical-align: middle; white-space: nowrap;
 }
 .data-table tr:hover td { background: rgba(0,212,255,0.025); }
-.td-empty { text-align: center; color: var(--text-3); padding: 40px !important; }
+.td-empty { text-align: center; color: var(--text-3); padding: 40px !important; white-space: normal !important; }
 
 /* Cell styles */
 .sym-bold  { font-weight: 800; font-size: 14px; color: var(--text); }
@@ -792,13 +819,13 @@ body::before {
    RESPONSIVE BREAKPOINTS
    ═══════════════════════════════════════════ */
 
-/* 1280px - tighten stats */
+/* ── 1280px ── */
 @media (max-width: 1280px) {
   .stats-grid { grid-template-columns: 1fr 1fr; }
   .stats-breakdown { grid-column: 1 / -1; }
 }
 
-/* 1024px - sidebar narrower, 2-col KPIs */
+/* ── 1024px ── */
 @media (max-width: 1024px) {
   :root { --sidebar-w: 200px; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
@@ -806,7 +833,7 @@ body::before {
   .config-grid { grid-template-columns: 1fr; }
 }
 
-/* 900px — sidebar becomes a drawer */
+/* ── 900px — sidebar becomes a drawer ── */
 @media (max-width: 900px) {
   :root { --sidebar-w: 245px; }
   .sidebar { transform: translateX(-100%); box-shadow: none; }
@@ -818,39 +845,129 @@ body::before {
   .stats-grid { grid-template-columns: 1fr; }
   .live-clock { display: none; }
   .signals-grid { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+
+  /* Scanner — side-by-side ring + stock on tablet */
+  .scanner-live-card { min-height: auto; }
+  .scanner-live-body {
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    gap: 28px;
+    padding: 20px 18px;
+  }
+  .scan-stock-info { text-align: left; }
+
+  /* Table: reduce max-height on tablet to leave room for navigation */
+  .table-wrap { max-height: 420px; }
 }
 
-/* 640px — mobile */
+/* ── 640px — mobile ── */
 @media (max-width: 640px) {
   .header { padding: 0 12px; }
   .logo-sub { display: none; }
   .conn-text { display: none; }
   .market-badge { padding: 5px 12px; font-size: 12px; }
   .main-content { padding: 12px; }
+
+  /* KPIs */
   .kpi-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
   .kpi-card { padding: 14px 12px; }
   .kpi-val  { font-size: 24px; }
   .kpi-icon-wrap { font-size: 22px; }
-  .section-header h2 { font-size: 17px; }
+
+  /* Section headers */
   .section-header { flex-direction: column; align-items: flex-start; }
-  .section-actions { width: 100%; }
-  .search-input { flex: 1; width: auto; min-width: 0; }
+  .section-header h2 { font-size: 17px; }
+
+  /* ── All Results: search + filter ── */
+  .section-actions { flex-direction: column; width: 100%; gap: 8px; }
+  .search-input  { width: 100%; min-width: 0; }
+  .filter-select { width: 100%; }
+
+  /* Grids */
   .overview-row { grid-template-columns: 1fr; }
   .signals-grid { grid-template-columns: 1fr; }
   .config-grid  { grid-template-columns: 1fr; }
-  .sys-grid { grid-template-columns: 1fr 1fr; }
-  .filter-legend { display: none; }
-  .spb-current { font-size: 36px; }
-  .toast-container { left: 12px; right: 12px; max-width: none; }
-  .stats-grid { grid-template-columns: 1fr; }
+  .stats-grid   { grid-template-columns: 1fr; }
   .scanner-top-grid { grid-template-columns: 1fr; }
+  .sys-grid     { grid-template-columns: 1fr 1fr; }
+
+  /* Filter legend hidden on mobile */
+  .filter-legend { display: none; }
+
+  /* Toast */
+  .toast-container { left: 12px; right: 12px; max-width: none; }
+
+  /* ── Scanner: compact horizontal layout on mobile ── */
+  .scanner-live-card { min-height: auto; }
+  .scanner-live-body {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 20px;
+    padding: 16px;
+  }
+  .scan-ring-wrap  { width: 72px; height: 72px; flex-shrink: 0; }
+  .scan-ring-text  { font-size: 10px; letter-spacing: 1px; }
+  .ssi-label       { font-size: 9px; }
+  .ssi-stock       { font-size: 16px; text-align: left; }
+  .scan-stock-info { text-align: left; flex: 1; min-width: 0; }
+
+  /* Scanner progress — tighter numbers */
+  .scan-progress-body { padding: 16px; gap: 12px; }
+  .spb-current { font-size: 36px; }
+  .spb-sep     { font-size: 18px; }
+  .spb-total   { font-size: 18px; }
+
+  /* ── Data Tables: smaller cells ── */
+  .table-wrap { max-height: 380px; }
+  .data-table { font-size: 12px; }
+  .data-table th { padding: 9px 10px; font-size: 10px; letter-spacing: 0; }
+  .data-table td { padding: 8px 10px; }
+  .sym-bold { font-size: 13px; }
+  .tag  { font-size: 10px; padding: 2px 6px; }
+  .fbadge { font-size: 8px; padding: 2px 4px; }
+
+  /* ── Card head: allow wrap for filter table head ── */
+  .card-head { flex-wrap: wrap; gap: 6px; padding: 10px 14px; }
 }
 
-/* 400px — small devices */
+/* ── 480px — narrow mobile ── */
+@media (max-width: 480px) {
+  /* Scanner: even more compact */
+  .scan-ring-wrap { width: 60px; height: 60px; }
+  .spb-current { font-size: 30px; }
+
+  /* Tables: hide lowest-priority columns */
+  /* Hide "Time" column (last col, index 8) */
+  .data-table th:last-child,
+  .data-table td:last-child { display: none; }
+
+  /* Compress Filters badges column — stack vertically */
+  .fbadges { gap: 2px; }
+  .fbadge  { font-size: 7px; padding: 1px 3px; }
+
+  /* Table: reduce max-height to keep nav visible */
+  .table-wrap { max-height: 320px; }
+
+  /* section actions */
+  .section-header h2 { font-size: 15px; }
+}
+
+/* ── 400px — very small devices ── */
 @media (max-width: 400px) {
-  .kpi-val { font-size: 20px; }
+  .kpi-val   { font-size: 20px; }
   .kpi-label { font-size: 10px; }
-  .sys-grid { grid-template-columns: 1fr; }
+  .sys-grid  { grid-template-columns: 1fr; }
   .mood-counts { gap: 12px; }
-  .mc-val { font-size: 20px; }
+  .mc-val    { font-size: 20px; }
+
+  /* Scanner: stack back to vertical if ring+info too tight */
+  .scanner-live-body { flex-direction: column; align-items: center; gap: 12px; }
+  .scan-stock-info   { text-align: center; }
+  .ssi-stock         { text-align: center; font-size: 14px; }
+
+  /* Table cells even smaller */
+  .data-table th { padding: 7px 8px; }
+  .data-table td { padding: 7px 8px; }
 }
