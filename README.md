@@ -158,10 +158,21 @@ All settings managed via `.env`:
 | `PRICE_CHANGE_MIN` | 0.3 | Min price change % for alert |
 | `VOLUME_MULT` | 1.5 | Volume must be X times normal |
 | `SCAN_INTERVAL` | 5 | Scan frequency (minutes) |
+| `CONFIRM_SCANS` | 2 | Scans a stock must appear consecutively before alerting |
+| `MIN_STOCK_PRICE` | 200.0 | Skip stocks below this price (illiquid options) |
+| `MIN_OI_CONTRACTS` | 50000 | Minimum OI contracts required (filters low-activity stocks) |
+| `SIGNAL_COOLDOWN_MINUTES` | 30 | Minutes before same stock can send another alert |
 | `REQUEST_DELAY` | 0.3 | Seconds between NSE API requests (rate limiting) |
 | `ENABLE_ADX_FILTER` | False | Enable ADX trend strength filter |
 | `ADX_MIN` | 25.0 | Minimum ADX value required (25 = strong trend) |
 | `ADX_PERIOD` | 14 | ADX calculation period (14 = industry standard) |
+| `ENABLE_PCR_FILTER` | False | Block CE signals when market PCR is bearish |
+| `PCR_MAX` | 1.2 | Maximum PCR allowed for CE signals (above = bearish) |
+| `ENABLE_TIME_FILTER` | True | Only alert during best CE buying time windows |
+| `WINDOW1_START` | 09:30 | Best window 1 start time (HH:MM) |
+| `WINDOW1_END` | 11:30 | Best window 1 end time (HH:MM) |
+| `WINDOW2_START` | 14:00 | Best window 2 start time (HH:MM) |
+| `WINDOW2_END` | 14:45 | Best window 2 end time (HH:MM) |
 | `OUTPUT_FILE` | OISignalFlow_Results.xlsx | Excel output filename |
 | `LOG_LEVEL` | INFO | Logging level (DEBUG/INFO/WARNING/ERROR) |
 | `ENABLE_DESKTOP_NOTIFICATIONS` | True | Desktop notification on/off (set False on server) |

@@ -82,6 +82,7 @@ OI_CHANGE_MIN     = float(os.getenv('OI_CHANGE_MIN',    '2.0'))   # Min OI chang
 PRICE_CHANGE_MIN  = float(os.getenv('PRICE_CHANGE_MIN', '0.3'))   # Min price change %
 VOLUME_MULT       = float(os.getenv('VOLUME_MULT',      '1.5'))   # Volume multiplier
 SCAN_INTERVAL     = int(os.getenv('SCAN_INTERVAL',      '5'))     # Scan interval (minutes)
+CONFIRM_SCANS     = int(os.getenv('CONFIRM_SCANS',      '2'))     # Consecutive scans required before alert
 OUTPUT_FILE       = os.getenv('OUTPUT_FILE', 'OISignalFlow_Results.xlsx')
 
 # Rate Limiting  (Issue 3)
@@ -91,6 +92,24 @@ REQUEST_DELAY     = float(os.getenv('REQUEST_DELAY', '0.3'))      # Seconds betw
 ENABLE_ADX_FILTER = os.getenv('ENABLE_ADX_FILTER', 'False') == 'True'
 ADX_MIN           = float(os.getenv('ADX_MIN', '25.0'))           # Min ADX for strong trend
 ADX_PERIOD        = int(os.getenv('ADX_PERIOD', '14'))            # Standard ADX period — 14 is the industry default
+
+# PCR Market Filter  (Improvement 1)
+ENABLE_PCR_FILTER = os.getenv('ENABLE_PCR_FILTER', 'False') == 'True'
+PCR_MAX           = float(os.getenv('PCR_MAX', '1.2'))            # Block CE signals if PCR above this value
+
+# Time Window Filter  (Improvement 2)
+ENABLE_TIME_FILTER = os.getenv('ENABLE_TIME_FILTER', 'True') == 'True'
+WINDOW1_START      = os.getenv('WINDOW1_START', '09:30')
+WINDOW1_END        = os.getenv('WINDOW1_END',   '11:30')
+WINDOW2_START      = os.getenv('WINDOW2_START', '14:00')
+WINDOW2_END        = os.getenv('WINDOW2_END',   '14:45')
+
+# Scan Quality Filters  (Improvements 3 & 4)
+MIN_STOCK_PRICE  = float(os.getenv('MIN_STOCK_PRICE',  '200.0'))  # Skip stocks below this price
+MIN_OI_CONTRACTS = int(os.getenv('MIN_OI_CONTRACTS',  '50000'))  # Minimum absolute OI contracts
+
+# Signal Cooldown  (Improvement 6)
+SIGNAL_COOLDOWN_MINUTES = int(os.getenv('SIGNAL_COOLDOWN_MINUTES', '30'))
 
 # Logging
 LOG_LEVEL         = os.getenv('LOG_LEVEL', 'INFO')
@@ -200,9 +219,16 @@ def telegram_startup():
         f"💹 Price Min : +{PRICE_CHANGE_MIN}%\n"
         f"📦 Volume    : {VOLUME_MULT}x above normal\n"
         f"⏳ API Delay : {REQUEST_DELAY}s between requests\n"
+        f"💹 Min Price  : ₹{MIN_STOCK_PRICE}\n"
+        f"📦 Min OI     : {MIN_OI_CONTRACTS:,} contracts\n"
     )
     if ENABLE_ADX_FILTER:
         msg += f"📉 ADX Filter : Enabled (min {ADX_MIN}, period {ADX_PERIOD})\n"
+    if ENABLE_PCR_FILTER:
+        msg += f"🌡 PCR Filter : Enabled (max PCR {PCR_MAX})\n"
+    if ENABLE_TIME_FILTER:
+        msg += (f"⏰ Time Windows: {WINDOW1_START}–{WINDOW1_END} "
+                f"& {WINDOW2_START}–{WINDOW2_END}\n")
     msg += (
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         "✅ Scanning for Long Buildup signals\n"
@@ -253,6 +279,9 @@ def telegram_ce_signals(ce_candidates, scan_num):
             adx_line = (f"   📉 ADX       : {s.get('ADX', 0):.1f}\n"
                         if ENABLE_ADX_FILTER else "")
 
+            # Improvement 5 — confirmation badge
+            confirmed_line = "   ✅ Confirmed  : YES — multi-scan signal\n" if s.get('confirmed') else ""
+
             msg += (
                 f"<b>{i}. {s['Symbol']}</b>\n"
                 f"   💰 Price     : ₹{s['Price']}  "
@@ -262,6 +291,7 @@ def telegram_ce_signals(ce_candidates, scan_num):
                 + adx_line +
                 f"   🔰 Signal    : {s['Signal']}\n"
                 f"   ⚡ Strength  : {strength}\n"
+                + confirmed_line +
                 f"   🎯 Action    : BUY ATM CE\n"
                 f"   🛑 Stop Loss : Close below VWAP\n"
                 f"   ⏱ Scan Time : {s['Time']}\n\n"
@@ -331,6 +361,29 @@ def telegram_summary(results, scan_num):
         f"⚪ Long Unwinding: {unwinding} stocks\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🌡 Market Mood   : {mood}\n"
+    )
+
+    # Improvement 7 — Top 3 Long Buildup (CE candidates)
+    ce_top = df[df['Signal'].str.contains('LONG BUILDUP')
+               ].sort_values('OI_Chg_%', ascending=False).head(3)
+    if not ce_top.empty:
+        msg += "\n🎯 <b>Top CE Candidates (Long Buildup):</b>\n"
+        for _, row in ce_top.iterrows():
+            msg += (f"   ✅ {row['Symbol']} — "
+                    f"OI {row['OI_Chg_%']:+.1f}% | "
+                    f"₹{row['Price']}\n")
+
+    # Improvement 7 — Top 3 Short Buildup (for awareness — avoid CE)
+    sb_top = df[df['Signal'].str.contains('SHORT BUILDUP')
+               ].sort_values('OI_Chg_%', ascending=False).head(3)
+    if not sb_top.empty:
+        msg += "\n⚠️ <b>Top Short Buildup (Avoid CE):</b>\n"
+        for _, row in sb_top.iterrows():
+            msg += (f"   ❌ {row['Symbol']} — "
+                    f"OI {row['OI_Chg_%']:+.1f}% | "
+                    f"₹{row['Price']}\n")
+
+    msg += (
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"<i>Powered by OISignalFlow v1.0.0</i>"
     )
@@ -364,6 +417,72 @@ def telegram_holiday(today_str):
         "<i>— OISignalFlow v1.0.0</i>"
     )
     send_telegram(msg)
+
+
+# ============================================================
+# 🌡  PCR MARKET FILTER  (Improvement 1)
+# ============================================================
+
+def fetch_pcr():
+    """
+    Fetch Nifty Put Call Ratio from NSE.
+    Returns PCR float value or None if unavailable.
+    PCR < 0.8  = Very Bullish
+    PCR 0.8-1.2 = Neutral
+    PCR > 1.2  = Bearish
+    """
+    try:
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Accept-Language': 'en-US,en;q=0.9',
+            'Referer': 'https://www.nseindia.com'
+        }
+        session = requests.Session()
+        session.get('https://www.nseindia.com', headers=headers, timeout=10)
+        response = session.get(
+            'https://www.nseindia.com/api/option-chain-indices?symbol=NIFTY',
+            headers=headers, timeout=10
+        )
+        if response.status_code == 200:
+            data = response.json()
+            ce_oi = sum(
+                item.get('CE', {}).get('openInterest', 0)
+                for item in data.get('records', {}).get('data', [])
+                if 'CE' in item
+            )
+            pe_oi = sum(
+                item.get('PE', {}).get('openInterest', 0)
+                for item in data.get('records', {}).get('data', [])
+                if 'PE' in item
+            )
+            if ce_oi > 0:
+                pcr = round(pe_oi / ce_oi, 2)
+                log.info(f"PCR fetched: {pcr} (CE OI: {ce_oi}, PE OI: {pe_oi})")
+                return pcr
+        return None
+    except Exception as e:
+        log.warning(f"PCR fetch failed: {e}")
+        return None
+
+
+# ============================================================
+# ⏰  TIME WINDOW FILTER  (Improvement 2)
+# ============================================================
+
+def is_best_trading_window():
+    """
+    Returns True if current time is within best CE buying windows.
+    Window 1: 9:30 AM – 11:30 AM (fresh trend forming)
+    Window 2: 2:00 PM – 2:45 PM  (closing momentum)
+    Returns True always if ENABLE_TIME_FILTER is False.
+    """
+    if not ENABLE_TIME_FILTER:
+        return True
+    now_str = datetime.now().strftime("%H:%M")
+    in_window1 = WINDOW1_START <= now_str <= WINDOW1_END
+    in_window2 = WINDOW2_START <= now_str <= WINDOW2_END
+    return in_window1 or in_window2
 
 
 # ============================================================
@@ -444,12 +563,23 @@ def get_oi_data(symbol):
 
         current_oi    = float(latest.get('Open Interest', 0))
         prev_oi       = float(prev.get('Open Interest', 0))
+
+        # Improvement 4 — Skip stocks with insufficient absolute OI
+        if current_oi < MIN_OI_CONTRACTS:
+            log.debug(f"Skipping {symbol} — OI {int(current_oi)} below MIN_OI_CONTRACTS {MIN_OI_CONTRACTS}")
+            return None
+
         current_price = float(latest.get('Close Price', 0))
         prev_price    = float(prev.get('Close Price', 0))
         current_vol   = float(latest.get('Volume', 0))
         prev_vol      = float(prev.get('Volume', 0))
 
         if prev_oi == 0 or prev_price == 0 or prev_vol == 0:
+            return None
+
+        # Improvement 3 — Skip penny/low-price stocks (illiquid CE options)
+        if current_price < MIN_STOCK_PRICE:
+            log.debug(f"Skipping {symbol} — price ₹{current_price} below MIN_STOCK_PRICE ₹{MIN_STOCK_PRICE}")
             return None
 
         oi_chg_pct    = ((current_oi - prev_oi)     / prev_oi)     * 100
@@ -523,7 +653,7 @@ def save_to_excel(all_df, ce_df):
 # 📡  REAL-TIME CONFIG UPDATER  (Issue 2 — reduced call frequency)
 # ============================================================
 
-def update_config_json(scan_num, current_symbol, results, ce_candidates):
+def update_config_json(scan_num, current_symbol, results, ce_candidates, pcr=None):
     """Update config.json with real-time scan data for live dashboard"""
     try:
         # Compute market mood from current results
@@ -572,7 +702,10 @@ def update_config_json(scan_num, current_symbol, results, ce_candidates):
                 "long_buildup_count"   : long_bu,
                 "short_buildup_count"  : short_bu,
                 "short_covering_count" : len([r for r in results if "SHORT COVERING"  in r['Signal']]),
-                "long_unwinding_count" : len([r for r in results if "LONG UNWINDING"  in r['Signal']])
+                "long_unwinding_count" : len([r for r in results if "LONG UNWINDING"  in r['Signal']]),
+                "pcr"                  : pcr if pcr is not None else 0,
+                "pcr_filter_enabled"   : ENABLE_PCR_FILTER,
+                "pcr_max"              : PCR_MAX
             },
             "recent_signals": [
                 {
@@ -627,9 +760,13 @@ def update_config_json(scan_num, current_symbol, results, ce_candidates):
 # ============================================================
 
 scan_count = 0
+current_pcr_value = None    # Latest PCR value, passed to update_config_json
+confirmed_signals = {}      # Improvement 5: { 'SYMBOL': consecutive_count }
+last_alerted      = {}      # Improvement 6: { 'SYMBOL': datetime_of_last_alert }
 
 def run_scanner():
-    global scan_count
+    global scan_count, current_pcr_value
+
     scan_count += 1
 
     now = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
@@ -639,6 +776,33 @@ def run_scanner():
     print(f"{BOLD}{CYAN}  ⚡ OISignalFlow v1.0.0  |  Scan #{scan_count}  |  {now}{RESET}")
     print(f"{BOLD}{CYAN}{'═'*55}{RESET}")
     log.info(f"Scan #{scan_count} started")
+
+    # ── PCR Market Filter (Improvement 1) ──
+    current_pcr = None
+    if ENABLE_PCR_FILTER:
+        current_pcr = fetch_pcr()
+        if current_pcr is not None:
+            if current_pcr > PCR_MAX:
+                print(f"  {RED}🚫 PCR = {current_pcr} > {PCR_MAX} "
+                      f"→ Market BEARISH. Skipping CE scan.{RESET}")
+                log.warning(f"PCR {current_pcr} exceeds max {PCR_MAX} — CE scan skipped")
+                send_telegram(
+                    f"🚫 <b>OISignalFlow — PCR Alert!</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"🌡 Nifty PCR : {current_pcr}\n"
+                    f"⚠️ PCR > {PCR_MAX} → Market is BEARISH\n"
+                    f"❌ CE signals blocked this scan\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"<i>— OISignalFlow v1.0.0</i>"
+                )
+                return
+            else:
+                print(f"  {GREEN}✅ PCR = {current_pcr} → Market OK for CE buying{RESET}")
+                log.info(f"PCR {current_pcr} within limit — CE scan proceeding")
+        else:
+            print(f"  {YELLOW}⚠️  PCR unavailable — proceeding without PCR filter{RESET}")
+
+    current_pcr_value = current_pcr   # Store for update_config_json calls
 
     results       = []
     ce_candidates = []
@@ -663,29 +827,71 @@ def run_scanner():
             adx_ok   = (not ENABLE_ADX_FILTER) or (row.get('ADX', 0) >= ADX_MIN)
 
             if is_long_buildup and oi_ok and price_ok and volume_ok and adx_ok:
-                ce_candidates.append(row)
-                log.info(
-                    f"CE signal: {symbol} | "
-                    f"OI: {row['OI_Chg_%']:+.2f}% | "
-                    f"Price: {row['Price_Chg_%']:+.2f}% | "
-                    f"Vol: {row['Vol_Ratio']:.1f}x"
-                    + (f" | ADX: {row.get('ADX',0):.1f}" if ENABLE_ADX_FILTER else "")
-                )
-                # Update dashboard immediately on new CE signal  (Issue 2)
-                update_config_json(scan_count, symbol, results, ce_candidates)
-                cfg_updated = True
+                # Improvement 5 — Consecutive scan confirmation tracking
+                confirmed_signals[symbol] = confirmed_signals.get(symbol, 0) + 1
+                row['confirm_count'] = confirmed_signals[symbol]
+
+                if confirmed_signals[symbol] >= CONFIRM_SCANS:
+                    # Confirmed: stock appeared in enough consecutive scans
+                    row['confirmed'] = True
+                    ce_candidates.append(row)
+                    log.info(f"CONFIRMED signal: {symbol} — {confirmed_signals[symbol]} consecutive scans")
+                    log.info(
+                        f"CE signal: {symbol} | "
+                        f"OI: {row['OI_Chg_%']:+.2f}% | "
+                        f"Price: {row['Price_Chg_%']:+.2f}% | "
+                        f"Vol: {row['Vol_Ratio']:.1f}x"
+                        + (f" | ADX: {row.get('ADX',0):.1f}" if ENABLE_ADX_FILTER else "")
+                    )
+                    # Update dashboard immediately on new confirmed CE signal
+                    update_config_json(scan_count, symbol, results, ce_candidates, pcr=current_pcr_value)
+                    cfg_updated = True
+                else:
+                    # Pending: needs more consecutive scans
+                    log.info(f"Pending confirmation: {symbol} — "
+                             f"{confirmed_signals[symbol]}/{CONFIRM_SCANS} scans")
+                    print(f"  {YELLOW}⏳ Confirming: {symbol} "
+                          f"({confirmed_signals[symbol]}/{CONFIRM_SCANS} scans){RESET}")
+            else:
+                # Reset consecutive count if stock no longer qualifies
+                if symbol in confirmed_signals:
+                    confirmed_signals.pop(symbol)
 
         # Rate limit — avoid hammering NSE API  (Issue 3)
         time.sleep(REQUEST_DELAY)
 
         # Update dashboard every 10 stocks — skip if already updated this iteration  (Issue 2)
         if idx % 10 == 0 and not cfg_updated:
-            update_config_json(scan_count, symbol, results, ce_candidates)
+            update_config_json(scan_count, symbol, results, ce_candidates, pcr=current_pcr_value)
+
+    # ── Improvement 6: Cooldown Filter for Telegram alerts ──
+    now_dt = datetime.now()
+    fresh_signals    = []
+    cooldown_signals = []
+    for s in ce_candidates:
+        sym  = s['Symbol']
+        last = last_alerted.get(sym)
+        if last is None or (now_dt - last).total_seconds() >= SIGNAL_COOLDOWN_MINUTES * 60:
+            fresh_signals.append(s)
+        else:
+            mins_ago = int((now_dt - last).total_seconds() / 60)
+            cooldown_signals.append((sym, mins_ago))
+            log.info(f"Cooldown active for {sym} — alerted {mins_ago} min ago")
+
+    # Update last_alerted timestamp for fresh signals
+    for s in fresh_signals:
+        last_alerted[s['Symbol']] = now_dt
 
     # ── CE Candidates Output ──
     print(f"\n  {BOLD}{GREEN}✅ CE BUY SIGNALS: {len(ce_candidates)} found{RESET}")
     print(f"  {'─'*53}")
     log.info(f"Scan #{scan_count} complete — {len(ce_candidates)} CE signals from {len(results)} stocks")
+
+    # Show cooldown info if any signals are suppressed
+    if cooldown_signals:
+        print(f"  {YELLOW}🕐 Cooldown active: "
+              + ", ".join([f"{s}({m}m ago)" for s, m in cooldown_signals])
+              + f"{RESET}")
 
     if ce_candidates:
         for s in ce_candidates:
@@ -702,13 +908,23 @@ def run_scanner():
                 print(f"    📉 ADX       : {s.get('ADX', 0):.1f} (trend strength)")
             print(f"    🔰 Signal    : {s['Signal']}")
             print(f"    ⚡ Strength  : {strength}")
+            # Improvement 5 — confirmed badge in terminal
+            if s.get('confirmed'):
+                print(f"    ✅ Confirmed : YES — {s.get('confirm_count', CONFIRM_SCANS)} scans")
             print(f"    🎯 Action    : BUY ATM CE")
             print(f"    🛑 Stop Loss : Below VWAP")
 
-        # Send Telegram signal alert (chunked)
-        telegram_ce_signals(ce_candidates, scan_count)
+        # Improvement 2 + 6 — Telegram only for fresh signals within best time window
+        if fresh_signals and is_best_trading_window():
+            telegram_ce_signals(fresh_signals, scan_count)
+        elif fresh_signals and not is_best_trading_window():
+            now_str = datetime.now().strftime("%H:%M")
+            print(f"  {YELLOW}⚠️  CE signals found but outside best "
+                  f"trading window ({now_str}). "
+                  f"Telegram alert suppressed.{RESET}")
+            log.info(f"CE signals found at {now_str} — outside trading window, Telegram suppressed")
 
-        # Desktop notification
+        # Desktop notification — always show regardless of window
         if DESKTOP_NOTIFY:
             names = ", ".join([s['Symbol'] for s in ce_candidates])
             notification.notify(
@@ -739,7 +955,7 @@ def run_scanner():
             telegram_summary(results, scan_count)
 
         # Final complete update after scan ends  (Issue 2)
-        update_config_json(scan_count, "", results, ce_candidates)
+        update_config_json(scan_count, "", results, ce_candidates, pcr=current_pcr_value)
 
     print(f"\n  {CYAN}⏰ Next scan in {SCAN_INTERVAL} minutes...{RESET}")
     print(f"  {CYAN}{'═'*53}{RESET}\n")
@@ -836,10 +1052,22 @@ if __name__ == "__main__":
     print(f"  💹 Price Min : {PRICE_CHANGE_MIN}%")
     print(f"  📦 Volume    : {VOLUME_MULT}x normal")
     print(f"  ⏳ API Delay : {REQUEST_DELAY}s between requests")
+    print(f"  💹 Min Price : ₹{MIN_STOCK_PRICE}")
+    print(f"  📦 Min OI    : {MIN_OI_CONTRACTS:,} contracts")
+    print(f"  🔁 Confirm   : {CONFIRM_SCANS} consecutive scans required")
+    print(f"  🕐 Cooldown  : {SIGNAL_COOLDOWN_MINUTES} minutes per symbol")
     if ENABLE_ADX_FILTER:
         print(f"  📉 ADX Filter: Enabled (min {ADX_MIN}, period {ADX_PERIOD})")
     else:
         print(f"  📉 ADX Filter: Disabled")
+    if ENABLE_PCR_FILTER:
+        print(f"  🌡 PCR Filter: Enabled (max PCR {PCR_MAX})")
+    else:
+        print(f"  🌡 PCR Filter: Disabled")
+    if ENABLE_TIME_FILTER:
+        print(f"  ⏰ Time Filter: {WINDOW1_START}–{WINDOW1_END} & {WINDOW2_START}–{WINDOW2_END}")
+    else:
+        print(f"  ⏰ Time Filter: Disabled")
     print(f"  💾 Excel     : {OUTPUT_FILE}")
     print(f"  📝 Log File  : OISignalFlow.log")
     print(f"  📱 Telegram  : Enabled\n")
@@ -849,7 +1077,8 @@ if __name__ == "__main__":
              f"OI≥{OI_CHANGE_MIN}% | Price≥{PRICE_CHANGE_MIN}% | "
              f"Vol≥{VOLUME_MULT}x | delay={REQUEST_DELAY}s | "
              f"ADX filter={'ON' if ENABLE_ADX_FILTER else 'OFF'}"
-             + (f" | ADX≥{ADX_MIN}/period={ADX_PERIOD}" if ENABLE_ADX_FILTER else ""))
+             + (f" | ADX≥{ADX_MIN}/period={ADX_PERIOD}" if ENABLE_ADX_FILTER else "")
+             + f" | MinPrice≥₹{MIN_STOCK_PRICE}")
 
     # ── Send Telegram startup message ──
     print(f"{CYAN}Testing Telegram connection...{RESET}")
