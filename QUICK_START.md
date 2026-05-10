@@ -1,5 +1,5 @@
 ═══════════════════════════════════════════════════════════════════
-   ⚡  OISignalFlow — Live Monitoring Dashboard  |  QUICK START
+   ⚡  OISignalFlow v1.0.0 — Live Monitoring Dashboard  |  QUICK START
 ═══════════════════════════════════════════════════════════════════
 
 ▶ STEP 1 — Start the Python scanner

@@ -1,8 +1,9 @@
 {
+  "version": "v1.0.0",
   "status": {
     "system_status": "ready",
     "market_open": false,
-    "last_update": "2026-05-09 09:30:31",
+    "last_update": "2026-05-10 06:52:47",
     "scanner_running": false
   },
   "configuration": {
@@ -11,9 +12,12 @@
     "oi_change_min": 2.0,
     "price_change_min": 0.3,
     "volume_mult": 1.5,
+    "request_delay": 0.3,
+    "adx_filter_enabled": false,
+    "adx_min": 25.0,
     "output_file": "OISignalFlow_Results.xlsx",
     "telegram_enabled": true,
-    "desktop_notifications": true,
+    "desktop_notifications": false,
     "api_source": "NSE nselib",
     "data_type": "Futures (FUTSTK)",
     "period": "1D Candles",

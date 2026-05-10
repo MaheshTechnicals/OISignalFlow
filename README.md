@@ -158,9 +158,12 @@ All settings managed via `.env`:
 | `PRICE_CHANGE_MIN` | 0.3 | Min price change % for alert |
 | `VOLUME_MULT` | 1.5 | Volume must be X times normal |
 | `SCAN_INTERVAL` | 5 | Scan frequency (minutes) |
+| `REQUEST_DELAY` | 0.3 | Seconds between NSE API requests (rate limiting) |
+| `ENABLE_ADX_FILTER` | False | Enable ADX trend strength filter |
+| `ADX_MIN` | 25.0 | Minimum ADX value required (25 = strong trend) |
 | `OUTPUT_FILE` | OISignalFlow_Results.xlsx | Excel output filename |
-| `LOG_LEVEL` | INFO | Logging level |
-| `ENABLE_DESKTOP_NOTIFICATIONS` | True | Desktop notification on/off |
+| `LOG_LEVEL` | INFO | Logging level (DEBUG/INFO/WARNING/ERROR) |
+| `ENABLE_DESKTOP_NOTIFICATIONS` | True | Desktop notification on/off (set False on server) |
 
 ---
 
