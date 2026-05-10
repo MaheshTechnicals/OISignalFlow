@@ -1,42 +1,26 @@
 /* ============================================================
    OISignalFlow — dashboard-config.js
-   API endpoint configuration for the live dashboard.
 
-   HOW IT WORKS:
-   - Running LOCALLY  → fetches config.json from the same folder
-   - Hosted on NETLIFY → fetches from the DigitalOcean VM over HTTP
-
-   If you change your VM IP, update VM_IP below and push to GitHub.
+   LOCAL dev   → fetch config.json directly (same folder)
+   PRODUCTION  → fetch /api/config.json  (Netlify proxies
+                 this server-side to the VM over HTTP,
+                 so no mixed-content error on HTTPS)
    ============================================================ */
 
 (function () {
-  // ── Your DigitalOcean VM IP and CORS server port ──
-  var VM_IP   = '167.71.224.25';
-  var VM_PORT = '8080';
-
-  // Auto-detect: local dev vs any hosted environment (Netlify, etc.)
   var isLocal = (
-    location.hostname === 'localhost'     ||
-    location.hostname === '127.0.0.1'    ||
-    location.hostname === ''             ||  // file:// protocol
+    location.hostname === 'localhost'  ||
+    location.hostname === '127.0.0.1' ||
+    location.hostname === ''          ||
     location.protocol === 'file:'
   );
 
-  window.OISF_API = isLocal
-    ? 'config.json'
-    : 'http://' + VM_IP + ':' + VM_PORT + '/config.json';
+  window.OISF_API = isLocal ? 'config.json' : '/api/config.json';
 
-  // Log which mode is active (visible in browser devtools console)
   console.log(
     '%c⚡ OISignalFlow Dashboard',
     'color:#00d4ff;font-weight:bold;font-size:14px'
   );
-  console.log(
-    '%cAPI Mode: ' + (isLocal ? 'LOCAL' : 'REMOTE VM'),
-    'color:#94a3b8'
-  );
-  console.log(
-    '%cFetching: ' + window.OISF_API,
-    'color:#475569'
-  );
+  console.log('%cAPI Mode : ' + (isLocal ? 'LOCAL' : 'NETLIFY PROXY'), 'color:#94a3b8');
+  console.log('%cEndpoint : ' + window.OISF_API, 'color:#475569');
 })();

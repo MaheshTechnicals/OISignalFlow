@@ -1,42 +1,37 @@
 # ============================================================
 # OISignalFlow — netlify.toml
-# Netlify deployment configuration for the dashboard frontend
 # ============================================================
 
 [build]
-  # Root of the repo IS the OISignalFlow folder (all files at top level)
   publish = "."
-  # No build command needed — pure static HTML/CSS/JS
   command = ""
 
-# ── Cache headers ──────────────────────────────────────────
-[[headers]]
-  for = "/*"
-  [headers.values]
-    X-Frame-Options         = "SAMEORIGIN"
-    X-Content-Type-Options  = "nosniff"
-    Referrer-Policy         = "strict-origin-when-cross-origin"
+# ── Proxy Redirect ─────────────────────────────────────────
+# Browser fetches /api/config.json from Netlify (HTTPS).
+# Netlify proxies server-side to the VM (HTTP) — no mixed content.
+[[redirects]]
+  from   = "/api/config.json"
+  to     = "http://167.71.224.25:8080/config.json"
+  status = 200
+  force  = true
 
-# HTML — never cache (always fresh)
+# ── Cache Headers ──────────────────────────────────────────
 [[headers]]
   for = "/*.html"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
 
-# JS — short cache (5 min) so updates pick up quickly
 [[headers]]
   for = "/*.js"
   [headers.values]
     Cache-Control = "public, max-age=300"
 
-# CSS — short cache
 [[headers]]
   for = "/*.css"
   [headers.values]
     Cache-Control = "public, max-age=300"
 
-# config.json — never cache (live data bridge)
 [[headers]]
-  for = "/config.json"
+  for = "/api/config.json"
   [headers.values]
     Cache-Control = "no-cache, no-store, must-revalidate"
