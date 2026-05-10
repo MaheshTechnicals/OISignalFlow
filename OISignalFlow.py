@@ -847,7 +847,9 @@ if __name__ == "__main__":
     log.info(f"OISignalFlow v1.0.0 starting | "
              f"{len(FNO_STOCKS)} stocks | interval {SCAN_INTERVAL}min | "
              f"OI≥{OI_CHANGE_MIN}% | Price≥{PRICE_CHANGE_MIN}% | "
-             f"Vol≥{VOLUME_MULT}x | delay={REQUEST_DELAY}s")
+             f"Vol≥{VOLUME_MULT}x | delay={REQUEST_DELAY}s | "
+             f"ADX filter={'ON' if ENABLE_ADX_FILTER else 'OFF'}"
+             + (f" | ADX≥{ADX_MIN}/period={ADX_PERIOD}" if ENABLE_ADX_FILTER else ""))
 
     # ── Send Telegram startup message ──
     print(f"{CYAN}Testing Telegram connection...{RESET}")
