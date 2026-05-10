@@ -15,6 +15,7 @@ const APP = {
   prevScanNum:     0,
   soundOn:         true,
   audioCtx:        null,
+  audioReady:      false,  // true only after first user gesture (browser policy)
   pollTimer:       null,
   POLL_MS:         2000,
   connected:       false,
@@ -80,13 +81,30 @@ tickClock();
 
 // ─────────────────────────────────────────────
 // Web Audio — alert sounds
+// Browsers block AudioContext until a user gesture (click/tap/key).
+// We create and resume it only after the first interaction.
 // ─────────────────────────────────────────────
-function getAudioCtx() {
-  if (!APP.audioCtx) {
+function unlockAudio() {
+  // Called on first user gesture — creates AudioContext if not yet created
+  if (!APP.audioReady) {
     try {
       APP.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    } catch (_) { return null; }
+      APP.audioReady = true;
+    } catch (_) {}
   }
+  if (APP.audioCtx && APP.audioCtx.state === 'suspended') {
+    APP.audioCtx.resume();
+  }
+}
+
+// Unlock audio on ANY click/tap/keydown on the page
+['click', 'touchstart', 'keydown'].forEach(evt => {
+  document.addEventListener(evt, unlockAudio, { once: true, passive: true });
+});
+
+function getAudioCtx() {
+  // Return null if no user gesture has happened yet — safe, no console warning
+  if (!APP.audioReady || !APP.audioCtx) return null;
   if (APP.audioCtx.state === 'suspended') APP.audioCtx.resume();
   return APP.audioCtx;
 }
@@ -96,7 +114,7 @@ function beep(freqs, type = 'sine', vol = 0.15, spacing = 0.13) {
   const ctx = getAudioCtx();
   if (!ctx) return;
   freqs.forEach((f, i) => {
-    const osc = ctx.createOscillator();
+    const osc  = ctx.createOscillator();
     const gain = ctx.createGain();
     osc.connect(gain);
     gain.connect(ctx.destination);
@@ -111,19 +129,18 @@ function beep(freqs, type = 'sine', vol = 0.15, spacing = 0.13) {
 }
 
 const SOUNDS = {
-  startup:  () => beep([440, 660, 880], 'sine', 0.12, 0.15),
-  signal:   () => beep([523, 659, 784, 1047], 'sine', 0.18, 0.12),
-  scan:     () => beep([330], 'sine', 0.07),
-  connect:  () => beep([528, 660], 'sine', 0.1, 0.1),
+  startup:  () => beep([440, 660, 880],        'sine', 0.12, 0.15),
+  signal:   () => beep([523, 659, 784, 1047],  'sine', 0.18, 0.12),
+  scan:     () => beep([330],                  'sine', 0.07),
+  connect:  () => beep([528, 660],             'sine', 0.1,  0.1),
 };
 
-// Sound toggle button
+// Sound toggle button — also unlocks audio on first click
 $('soundBtn').addEventListener('click', () => {
+  unlockAudio();                               // ensure AudioContext is ready
   APP.soundOn = !APP.soundOn;
   $('soundBtn').textContent = APP.soundOn ? '🔊' : '🔇';
   $('soundBtn').classList.toggle('muted', !APP.soundOn);
-  // Initialize audio context on first user gesture
-  getAudioCtx();
 });
 
 // ─────────────────────────────────────────────
