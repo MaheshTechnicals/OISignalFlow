@@ -341,8 +341,8 @@ function updateOverviewRow(data) {
   setText('smStatus', (st.system_status || 'READY').toUpperCase());
   setText('smStock',  scanning && st.current_stock ? `Scanning: ${st.current_stock}` : 'Waiting for next scan...');
 
-  const scanned   = (data.all_scan_results || []).length;
-  const totalStk  = c.fno_stocks_total || 209;
+  const scanned   = st.stocks_attempted || (data.all_scan_results || []).length;
+  const totalStk  = st.stocks_total || c.fno_stocks_total || 209;
   const pctScanned= totalStk > 0 ? Math.round((scanned / totalStk) * 100) : 0;
   setWidth('smProgressFill', pctScanned);
   setText('smProgressText', `${scanned} / ${totalStk} stocks`);
@@ -438,7 +438,7 @@ function updateScanner(data) {
   const scanning    = st.system_status === 'scanning';
   const currentScan = st.current_scan  || 0;
   const totalStocks = conf.fno_stocks_total || 209;
-  const scanned     = res.length;
+  const scanned     = st.stocks_attempted || res.length;
 
   setText('scannerMeta', `Scan #${currentScan}`);
 

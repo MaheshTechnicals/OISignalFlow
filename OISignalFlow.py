@@ -705,7 +705,7 @@ def save_to_excel(all_df, ce_df):
 # 📡  REAL-TIME CONFIG UPDATER  (Issue 2 — reduced call frequency)
 # ============================================================
 
-def update_config_json(scan_num, current_symbol, results, ce_candidates, pcr=None):
+def update_config_json(scan_num, current_symbol, results, ce_candidates, pcr=None, attempted=0):
     """Update config.json with real-time scan data for live dashboard"""
     try:
         # Compute market mood from current results
@@ -726,7 +726,9 @@ def update_config_json(scan_num, current_symbol, results, ce_candidates, pcr=Non
                 "last_update"   : now_ist().strftime("%Y-%m-%d %H:%M:%S"),
                 "scanner_running": True,
                 "current_scan"  : scan_num,
-                "current_stock" : current_symbol
+                "current_stock" : current_symbol,
+                "stocks_attempted" : attempted,
+                "stocks_total"     : len(FNO_STOCKS)
             },
             "configuration": {
                 "fno_stocks_total"      : len(FNO_STOCKS),
@@ -748,6 +750,7 @@ def update_config_json(scan_num, current_symbol, results, ce_candidates, pcr=Non
             "statistics": {
                 "total_scans"          : scan_num,
                 "stocks_scanned"       : len(results),
+                "stocks_attempted"     : attempted,
                 "signals_found"        : len(ce_candidates),
                 "ce_candidates"        : len(ce_candidates),
                 "market_mood"          : mood,
@@ -856,14 +859,16 @@ def run_scanner():
 
     current_pcr_value = current_pcr   # Store for update_config_json calls
 
-    results       = []
-    ce_candidates = []
+    results          = []
+    ce_candidates    = []
+    stocks_attempted = 0   # counts ALL stocks tried including filtered/failed
 
     # ── Scan Each Stock ──
     for idx, symbol in enumerate(FNO_STOCKS):
         print(f"  {CYAN}Scanning {symbol}... [{idx+1}/{len(FNO_STOCKS)}]{RESET}      ", end="\r")
 
         row = get_oi_data(symbol)
+        stocks_attempted += 1  # increment for every stock regardless of result
 
         cfg_updated = False   # track if config was already written this iteration
 
@@ -896,7 +901,7 @@ def run_scanner():
                         + (f" | ADX: {row.get('ADX',0):.1f}" if ENABLE_ADX_FILTER else "")
                     )
                     # Update dashboard immediately on new confirmed CE signal
-                    update_config_json(scan_count, symbol, results, ce_candidates, pcr=current_pcr_value)
+                    update_config_json(scan_count, symbol, results, ce_candidates, pcr=current_pcr_value, attempted=stocks_attempted)
                     cfg_updated = True
                 else:
                     # Pending: needs more consecutive scans
@@ -914,7 +919,7 @@ def run_scanner():
 
         # Update dashboard every 10 stocks — skip if already updated this iteration  (Issue 2)
         if idx % 10 == 0 and not cfg_updated:
-            update_config_json(scan_count, symbol, results, ce_candidates, pcr=current_pcr_value)
+            update_config_json(scan_count, symbol, results, ce_candidates, pcr=current_pcr_value, attempted=stocks_attempted)
 
     # ── Improvement 6: Cooldown Filter for Telegram alerts ──
     now_dt = now_ist()
@@ -1007,7 +1012,7 @@ def run_scanner():
             telegram_summary(results, scan_count)
 
         # Final complete update after scan ends  (Issue 2)
-        update_config_json(scan_count, "", results, ce_candidates, pcr=current_pcr_value)
+        update_config_json(scan_count, "", results, ce_candidates, pcr=current_pcr_value, attempted=stocks_attempted)
 
     print(f"\n  {CYAN}⏰ Next scan in {SCAN_INTERVAL} minutes...{RESET}")
     print(f"  {CYAN}{'═'*53}{RESET}\n")
