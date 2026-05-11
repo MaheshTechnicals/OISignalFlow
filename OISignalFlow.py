@@ -725,6 +725,8 @@ def update_config_json(scan_num, current_symbol, results, ce_candidates, pcr=Non
                 "market_open"   : is_market_open(),
                 "last_update"   : now_ist().strftime("%Y-%m-%d %H:%M:%S"),
                 "scanner_running": True,
+                "stocks_attempted" : attempted,
+                "stocks_total"     : len(FNO_STOCKS),
                 "current_scan"  : scan_num,
                 "current_stock" : current_symbol,
                 "stocks_attempted" : attempted,

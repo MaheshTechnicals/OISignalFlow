@@ -1,10 +1,14 @@
 {
   "version": "v1.0.0",
   "status": {
-    "system_status": "ready",
-    "market_open": false,
-    "last_update": "2026-05-10 06:52:47",
-    "scanner_running": false
+    "system_status": "scanning",
+    "market_open": true,
+    "last_update": "2026-05-11 10:38:54",
+    "scanner_running": true,
+    "stocks_attempted": 201,
+    "stocks_total": 209,
+    "current_scan": 1,
+    "current_stock": "UPL"
   },
   "configuration": {
     "fno_stocks_total": 209,
@@ -17,22 +21,26 @@
     "adx_min": 25.0,
     "output_file": "OISignalFlow_Results.xlsx",
     "telegram_enabled": true,
-    "desktop_notifications": false,
+    "desktop_notifications": true,
     "api_source": "NSE nselib",
     "data_type": "Futures (FUTSTK)",
     "period": "1D Candles",
     "api_status": "Connected"
   },
   "statistics": {
-    "total_scans": 0,
+    "total_scans": 1,
     "stocks_scanned": 0,
+    "stocks_attempted": 201,
     "signals_found": 0,
     "ce_candidates": 0,
     "market_mood": "NEUTRAL",
     "long_buildup_count": 0,
     "short_buildup_count": 0,
     "short_covering_count": 0,
-    "long_unwinding_count": 0
+    "long_unwinding_count": 0,
+    "pcr": 0,
+    "pcr_filter_enabled": false,
+    "pcr_max": 1.2
   },
   "recent_signals": [],
   "all_scan_results": []
