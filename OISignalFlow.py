@@ -30,13 +30,29 @@ import logging
 import schedule
 import requests
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from nselib import derivatives
 import os
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
 load_dotenv()
+
+# ============================================================
+# 🌍  IST TIMEZONE HELPER (UTC+5:30)
+# ============================================================
+# DigitalOcean server runs on UTC, but market hours must use
+# Indian Standard Time (IST). This function ensures all
+# datetime checks work correctly regardless of server timezone.
+
+IST_OFFSET = timedelta(hours=5, minutes=30)
+
+def now_ist():
+    """Return current datetime in Indian Standard Time (IST = UTC+5:30).
+    Always use this instead of datetime.now() to ensure correct
+    market hours regardless of server timezone (DigitalOcean uses UTC).
+    """
+    return datetime.now(timezone.utc) + IST_OFFSET
 
 try:
     from plyer import notification
@@ -211,8 +227,8 @@ def telegram_startup():
     msg = (
         "🚀 <b>OISignalFlow v1.0.0 is LIVE!</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"📅 Date      : {datetime.now().strftime('%d-%m-%Y')}\n"
-        f"🕐 Started   : {datetime.now().strftime('%H:%M:%S')}\n"
+        f"📅 Date      : {now_ist().strftime('%d-%m-%Y')}\n"
+        f"🕐 Started   : {now_ist().strftime('%H:%M:%S')}\n"
         f"📊 Watching  : {len(FNO_STOCKS)} FNO Stocks\n"
         f"⏰ Interval  : Every {SCAN_INTERVAL} minutes\n"
         f"📈 OI Filter : Min {OI_CHANGE_MIN}% change\n"
@@ -221,6 +237,7 @@ def telegram_startup():
         f"⏳ API Delay : {REQUEST_DELAY}s between requests\n"
         f"💹 Min Price  : ₹{MIN_STOCK_PRICE}\n"
         f"📦 Min OI     : {MIN_OI_CONTRACTS:,} contracts\n"
+        f"🌍 Timezone  : IST (UTC+5:30)\n"
     )
     if ENABLE_ADX_FILTER:
         msg += f"📉 ADX Filter : Enabled (min {ADX_MIN}, period {ADX_PERIOD})\n"
@@ -240,7 +257,7 @@ def telegram_startup():
 def telegram_ce_signals(ce_candidates, scan_num):
     """Sent when CE buy candidates are found — chunked max 10 per message (Issue 4)"""
     CHUNK_SIZE    = 10
-    now           = datetime.now().strftime("%d-%m-%Y %H:%M")
+    now           = now_ist().strftime("%d-%m-%Y %H:%M")
     chunks        = [ce_candidates[i:i+CHUNK_SIZE]
                      for i in range(0, len(ce_candidates), CHUNK_SIZE)]
     total_chunks  = len(chunks)
@@ -315,7 +332,7 @@ def telegram_ce_signals(ce_candidates, scan_num):
 
 def telegram_no_signal(scan_num):
     """Sent every 3rd scan when no signal found"""
-    now = datetime.now().strftime("%H:%M")
+    now = now_ist().strftime("%H:%M")
     msg = (
         f"🔍 <b>OISignalFlow v1.0.0 — Scan #{scan_num}</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -347,7 +364,7 @@ def telegram_summary(results, scan_num):
     else:
         mood = "🟡 NEUTRAL"
 
-    now = datetime.now().strftime("%d-%m-%Y %H:%M")
+    now = now_ist().strftime("%d-%m-%Y %H:%M")
     msg = (
         f"📊 <b>OISignalFlow v1.0.0 — Market Summary</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -395,7 +412,7 @@ def telegram_market_closed():
     msg = (
         "🔴 <b>OISignalFlow v1.0.0 — Market Closed</b>\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
-        f"🕐 Closed at : {datetime.now().strftime('%H:%M')}\n"
+        f"🕐 Closed at : {now_ist().strftime('%H:%M')}\n"
         "📅 Scanner will resume:\n"
         "   Next trading day at 9:15 AM\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -485,7 +502,7 @@ def is_best_trading_window():
     """
     if not ENABLE_TIME_FILTER:
         return True
-    now_str = datetime.now().strftime("%H:%M")
+    now_str = now_ist().strftime("%H:%M")
     in_window1 = WINDOW1_START <= now_str <= WINDOW1_END
     in_window2 = WINDOW2_START <= now_str <= WINDOW2_END
     return in_window1 or in_window2
@@ -605,7 +622,7 @@ def get_oi_data(symbol):
             'Vol_Ratio'    : round(vol_ratio, 2),
             'ADX'          : adx_value,
             'Signal'       : classify_signal(price_chg_pct, oi_chg_pct),
-            'Time'         : datetime.now().strftime("%H:%M")
+            'Time'         : now_ist().strftime("%H:%M")
         }
 
     except Exception as e:
@@ -677,7 +694,7 @@ def update_config_json(scan_num, current_symbol, results, ce_candidates, pcr=Non
             "status": {
                 "system_status" : "scanning" if current_symbol else "ready",
                 "market_open"   : is_market_open(),
-                "last_update"   : datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "last_update"   : now_ist().strftime("%Y-%m-%d %H:%M:%S"),
                 "scanner_running": True,
                 "current_scan"  : scan_num,
                 "current_stock" : current_symbol
@@ -775,7 +792,7 @@ def run_scanner():
 
     scan_count += 1
 
-    now = datetime.now().strftime("%d-%m-%Y %H:%M:%S")
+    now = now_ist().strftime("%d-%m-%Y %H:%M:%S")
 
     # ── Header ──
     print(f"\n{BOLD}{CYAN}{'═'*55}{RESET}")
@@ -871,7 +888,7 @@ def run_scanner():
             update_config_json(scan_count, symbol, results, ce_candidates, pcr=current_pcr_value)
 
     # ── Improvement 6: Cooldown Filter for Telegram alerts ──
-    now_dt = datetime.now()
+    now_dt = now_ist()
     fresh_signals    = []
     cooldown_signals = []
     for s in ce_candidates:
@@ -924,7 +941,7 @@ def run_scanner():
         if fresh_signals and is_best_trading_window():
             telegram_ce_signals(fresh_signals, scan_count)
         elif fresh_signals and not is_best_trading_window():
-            now_str = datetime.now().strftime("%H:%M")
+            now_str = now_ist().strftime("%H:%M")
             print(f"  {YELLOW}⚠️  CE signals found but outside best "
                   f"trading window ({now_str}). "
                   f"Telegram alert suppressed.{RESET}")
@@ -973,7 +990,7 @@ def run_scanner():
 
 def is_market_open():
     """Returns True only during NSE market hours (excludes holidays)"""
-    now   = datetime.now()
+    now   = now_ist()
     h, m  = now.hour, now.minute
     today = now.strftime("%d-%m-%Y")
 
@@ -993,7 +1010,7 @@ holiday_alerted_date = None   # tracks which date we already sent holiday alert
 
 def job():
     global market_was_open, holiday_alerted_date
-    now   = datetime.now()
+    now   = now_ist()
     today = now.strftime("%d-%m-%Y")
 
     # ── Holiday check  (Issue 6) ──
@@ -1062,6 +1079,7 @@ if __name__ == "__main__":
     print(f"  📦 Min OI    : {MIN_OI_CONTRACTS:,} contracts")
     print(f"  🔁 Confirm   : {CONFIRM_SCANS} consecutive scans required")
     print(f"  🕐 Cooldown  : {SIGNAL_COOLDOWN_MINUTES} minutes per symbol")
+    print(f"  🌍 Timezone  : IST (UTC+5:30) — server-safe")
     if ENABLE_ADX_FILTER:
         print(f"  📉 ADX Filter: Enabled (min {ADX_MIN}, period {ADX_PERIOD})")
     else:
@@ -1084,7 +1102,7 @@ if __name__ == "__main__":
              f"Vol≥{VOLUME_MULT}x | delay={REQUEST_DELAY}s | "
              f"ADX filter={'ON' if ENABLE_ADX_FILTER else 'OFF'}"
              + (f" | ADX≥{ADX_MIN}/period={ADX_PERIOD}" if ENABLE_ADX_FILTER else "")
-             + f" | MinPrice≥₹{MIN_STOCK_PRICE}")
+             + f" | MinPrice≥₹{MIN_STOCK_PRICE} | timezone=IST(UTC+5:30)")
 
     # ── Send Telegram startup message ──
     print(f"{CYAN}Testing Telegram connection...{RESET}")
