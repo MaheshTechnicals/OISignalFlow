@@ -36,7 +36,36 @@ import os
 from dotenv import load_dotenv
 
 # Load environment variables from .env file
-load_dotenv()
+load_dotenv(override=True)
+
+# ============================================================
+# 🛡️  SAFE ENV VALUE PARSERS (Issue: inline comments in .env)
+# ============================================================
+# python-dotenv doesn't strip inline comments by default.
+# These helpers safely parse env values while stripping comments.
+
+def _env_float(key, default):
+    """Read float from env, safely stripping inline comments."""
+    raw = os.getenv(key, str(default))
+    val = raw.split('#')[0].strip()
+    try:
+        return float(val)
+    except ValueError:
+        return float(default)
+
+def _env_int(key, default):
+    """Read int from env, safely stripping inline comments."""
+    raw = os.getenv(key, str(default))
+    val = raw.split('#')[0].strip()
+    try:
+        return int(val)
+    except ValueError:
+        return int(default)
+
+def _env_str(key, default):
+    """Read string from env, safely stripping inline comments."""
+    raw = os.getenv(key, str(default))
+    return raw.split('#')[0].strip()
 
 # ============================================================
 # 🌍  IST TIMEZONE HELPER (UTC+5:30)
@@ -94,24 +123,24 @@ TELEGRAM_TOKEN    = os.getenv('TELEGRAM_TOKEN', 'YOUR_BOT_TOKEN_HERE')
 TELEGRAM_CHAT_ID  = os.getenv('TELEGRAM_CHAT_ID', 'YOUR_CHAT_ID_HERE')
 
 # Scan Parameters
-OI_CHANGE_MIN     = float(os.getenv('OI_CHANGE_MIN',    '2.0'))   # Min OI change %
-PRICE_CHANGE_MIN  = float(os.getenv('PRICE_CHANGE_MIN', '0.3'))   # Min price change %
-VOLUME_MULT       = float(os.getenv('VOLUME_MULT',      '1.5'))   # Volume multiplier
-SCAN_INTERVAL     = int(os.getenv('SCAN_INTERVAL',      '5'))     # Scan interval (minutes)
-CONFIRM_SCANS     = int(os.getenv('CONFIRM_SCANS',      '2'))     # Consecutive scans required before alert
+OI_CHANGE_MIN     = _env_float('OI_CHANGE_MIN',    2.0)   # Min OI change %
+PRICE_CHANGE_MIN  = _env_float('PRICE_CHANGE_MIN', 0.3)   # Min price change %
+VOLUME_MULT       = _env_float('VOLUME_MULT',      1.5)   # Volume multiplier
+SCAN_INTERVAL     = _env_int('SCAN_INTERVAL',      5)     # Scan interval (minutes)
+CONFIRM_SCANS     = _env_int('CONFIRM_SCANS',      2)     # Consecutive scans required before alert
 OUTPUT_FILE       = os.getenv('OUTPUT_FILE', 'OISignalFlow_Results.xlsx')
 
 # Rate Limiting  (Issue 3)
-REQUEST_DELAY     = float(os.getenv('REQUEST_DELAY', '0.3'))      # Seconds between NSE requests
+REQUEST_DELAY     = _env_float('REQUEST_DELAY', 0.3)      # Seconds between NSE requests
 
 # ADX Trend Filter  (Issue 8)
 ENABLE_ADX_FILTER = os.getenv('ENABLE_ADX_FILTER', 'False') == 'True'
-ADX_MIN           = float(os.getenv('ADX_MIN', '25.0'))           # Min ADX for strong trend
-ADX_PERIOD        = int(os.getenv('ADX_PERIOD', '14'))            # Standard ADX period — 14 is the industry default
+ADX_MIN           = _env_float('ADX_MIN', 25.0)           # Min ADX for strong trend
+ADX_PERIOD        = _env_int('ADX_PERIOD', 14)            # Standard ADX period — 14 is the industry default
 
 # PCR Market Filter  (Improvement 1)
 ENABLE_PCR_FILTER = os.getenv('ENABLE_PCR_FILTER', 'False') == 'True'
-PCR_MAX           = float(os.getenv('PCR_MAX', '1.2'))            # Block CE signals if PCR above this value
+PCR_MAX           = _env_float('PCR_MAX', 1.2)            # Block CE signals if PCR above this value
 
 # Time Window Filter  (Improvement 2)
 ENABLE_TIME_FILTER = os.getenv('ENABLE_TIME_FILTER', 'True') == 'True'
@@ -121,11 +150,11 @@ WINDOW2_START      = os.getenv('WINDOW2_START', '14:00')
 WINDOW2_END        = os.getenv('WINDOW2_END',   '14:45')
 
 # Scan Quality Filters  (Improvements 3 & 4)
-MIN_STOCK_PRICE  = float(os.getenv('MIN_STOCK_PRICE',  '200.0'))  # Skip stocks below this price
-MIN_OI_CONTRACTS = int(os.getenv('MIN_OI_CONTRACTS',  '50000'))  # Minimum absolute OI contracts
+MIN_STOCK_PRICE  = _env_float('MIN_STOCK_PRICE',  200.0)  # Skip stocks below this price
+MIN_OI_CONTRACTS = _env_int('MIN_OI_CONTRACTS',  50000)  # Minimum absolute OI contracts
 
 # Signal Cooldown  (Improvement 6)
-SIGNAL_COOLDOWN_MINUTES = int(os.getenv('SIGNAL_COOLDOWN_MINUTES', '30'))
+SIGNAL_COOLDOWN_MINUTES = _env_int('SIGNAL_COOLDOWN_MINUTES', 30)
 
 # Logging
 LOG_LEVEL         = os.getenv('LOG_LEVEL', 'INFO')
