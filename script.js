@@ -252,7 +252,9 @@ function update(data) {
   updateKPIs(data);
   updateOverviewRow(data);
   updateRecentSignals(data);
+  updateRecentPeSignals(data);
   updateLiveSignals(data);
+  updateLivePeSignals(data);
   updateScanner(data);
   updateStats(data);
   updateResults(data);
@@ -282,6 +284,7 @@ function updateKPIs(data) {
 
   animVal('kpiScans',   s.total_scans);
   animVal('kpiSignals', s.signals_found);
+  animVal('kpiPeSignals', s.pe_signals_found || 0);
   animVal('kpiStocks',  c.fno_stocks_total);
 
   const mood   = (s.market_mood || 'NEUTRAL').toUpperCase();
@@ -428,6 +431,63 @@ function buildSignalCard(s, markNew = false) {
 }
 
 // ─────────────────────────────────────────────
+// Recent PE Signals (Overview quick view)
+// ─────────────────────────────────────────────
+function updateRecentPeSignals(data) {
+  const peSigs = data.recent_pe_signals || [];
+  const grid = $('recentPeGrid');
+  if (!grid) return;
+
+  if (peSigs.length === 0) {
+    grid.innerHTML = `<div class="empty-state"><div class="es-icon">🔴</div><div class="es-text">No PE signals yet — scanner is watching ${data.configuration.fno_stocks_total} stocks</div></div>`;
+    return;
+  }
+
+  grid.innerHTML = peSigs.map(s => buildSignalCard(s)).join('');
+}
+
+// ─────────────────────────────────────────────
+// Live PE Signals Section
+// ─────────────────────────────────────────────
+function updateLivePeSignals(data) {
+  const peSigs = data.recent_pe_signals || [];
+  const grid = $('peSignalsGrid');
+  if (!grid) return;
+
+  if (peSigs.length === 0) {
+    grid.innerHTML = `<div class="empty-state large"><div class="es-icon">🔴</div><div class="es-text">No PE signals detected yet</div><div class="es-sub">Short Buildup (Price↓ + OI↑) — Puts buying opportunity</div></div>`;
+    return;
+  }
+
+  grid.innerHTML = peSigs.map(s => buildSignalCard(s, true)).join('');
+}
+
+// ─────────────────────────────────────────────
+// Signal Tab Switching
+// ─────────────────────────────────────────────
+function switchSignalTab(tab) {
+  // Hide all tab content
+  const ceContent = $('ceTabContent');
+  const peContent = $('peTabContent');
+  const ceTab = $('ceTab');
+  const peTab = $('peTab');
+  
+  if (ceContent && peContent && ceTab && peTab) {
+    if (tab === 'ce') {
+      ceContent.classList.add('active');
+      peContent.classList.remove('active');
+      ceTab.classList.add('active');
+      peTab.classList.remove('active');
+    } else {
+      ceContent.classList.remove('active');
+      peContent.classList.add('active');
+      ceTab.classList.remove('active');
+      peTab.classList.add('active');
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
 // Scanner Section
 // ─────────────────────────────────────────────
 function updateScanner(data) {
@@ -543,6 +603,7 @@ function updateStats(data) {
   animVal('mrScans',       s.total_scans);
   animVal('mrStocksPerScan', conf.fno_stocks_total);
   animVal('mrCE',          s.signals_found);
+  animVal('mrPE',          s.pe_signals_found || 0);
 
   const hitRate = s.stocks_scanned > 0
     ? ((s.signals_found / s.stocks_scanned) * 100).toFixed(1)

@@ -471,9 +471,45 @@ body::before {
 .strength-tag.very { background: var(--yellow-dim); color: var(--yellow); border-color: rgba(255,187,0,0.2); }
 .sc-action { font-size: 11px; color: var(--cyan); font-weight: 600; }
 
-/* ═══════════════════════════════════════════
+/* ─────────────────────────────────────────────
+   TAB SWITCHING (CE/PE Signals)
+   ───────────────────────────────────────────── */
+.tabs-container {
+  display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--border);
+}
+.tab-btn {
+  padding: 10px 16px; font-size: 14px; font-weight: 600;
+  background: transparent; color: var(--text-3); cursor: pointer;
+  border: none; border-bottom: 2px solid transparent;
+  transition: all var(--trans);
+  position: relative; bottom: -1px;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  color: var(--green);
+  border-bottom-color: var(--green);
+}
+.tab-content { display: none; }
+.tab-content.active { display: block; animation: fadeInTab 0.3s var(--ease); }
+@keyframes fadeInTab {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ─────────────────────────────────────────────
+   RED GLOW (for PE signals)
+   ───────────────────────────────────────────── */
+.red-glow { background: var(--red-dim) !important; }
+.kpi-red { 
+  background: var(--grad-card);
+  border-color: var(--red-dim);
+  border: 1px solid var(--border);
+}
+.kpi-red .kpi-val { color: var(--red); }
+
+/* ════════════════════════════════════════════
    SCANNER SECTION
-   ═══════════════════════════════════════════ */
+   ════════════════════════════════════════════ */
 .scanner-top-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 14px; margin-bottom: 14px; }
 /* scanner-live-card: inherits .card, min-height ensures ring has room */
 .scanner-live-card { min-height: 240px; }

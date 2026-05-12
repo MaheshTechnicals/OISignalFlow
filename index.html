@@ -114,6 +114,14 @@
             </div>
             <div class="kpi-glow green-glow"></div>
           </div>
+          <div class="kpi-card kpi-red">
+            <div class="kpi-icon-wrap">🔴</div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="kpiPeSignals">0</div>
+              <div class="kpi-label">PE Signals Found</div>
+            </div>
+            <div class="kpi-glow red-glow"></div>
+          </div>
           <div class="kpi-card kpi-purple">
             <div class="kpi-icon-wrap">📊</div>
             <div class="kpi-body">
@@ -216,16 +224,28 @@
           </div>
         </div>
 
-        <!-- Recent CE Signals -->
+        <!-- Recent CE & PE Signals -->
         <div class="card">
           <div class="card-head">
             <span>🟢 Latest CE Buy Signals</span>
             <button class="link-btn" onclick="switchSection('signals')">View All →</button>
           </div>
-          <div class="recent-grid" id="recentGrid">
+          <div class="signals-grid" id="recentGrid">
             <div class="empty-state">
-              <div class="es-icon">🔍</div>
+              <div class="es-icon">🎯</div>
               <div class="es-text">No CE signals yet — scanner is running</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <span>🔴 Latest PE Buy Signals</span>
+            <button class="link-btn" onclick="switchSection('signals')">View All →</button>
+          </div>
+          <div class="signals-grid" id="recentPeGrid">
+            <div class="empty-state">
+              <div class="es-icon">🔴</div>
+              <div class="es-text">No PE signals yet — scanner is watching</div>
             </div>
           </div>
         </div>
@@ -234,14 +254,35 @@
       <!-- ════════════════ LIVE SIGNALS ════════════════ -->
       <section class="section" id="section-signals">
         <div class="section-header">
-          <h2>🎯 Live CE Buy Signals</h2>
+          <h2>🎯 Live Buy Signals — CE & PE</h2>
           <div class="section-meta" id="signalsMeta">0 signals found</div>
         </div>
-        <div class="signals-grid" id="signalsGrid">
-          <div class="empty-state large">
-            <div class="es-icon">🎯</div>
-            <div class="es-text">No CE signals detected yet</div>
-            <div class="es-sub">Long Buildup + OI↑ + Price↑ + Volume↑ conditions trigger alerts here</div>
+
+        <!-- CE Signals Tab -->
+        <div class="tabs-container">
+          <button class="tab-btn active" onclick="switchSignalTab('ce')" id="ceTab">🟢 CE Signals (Long Buildup)</button>
+          <button class="tab-btn" onclick="switchSignalTab('pe')" id="peTab">🔴 PE Signals (Short Buildup)</button>
+        </div>
+
+        <!-- CE Signals Grid -->
+        <div class="tab-content active" id="ceTabContent">
+          <div class="signals-grid" id="signalsGrid">
+            <div class="empty-state large">
+              <div class="es-icon">🎯</div>
+              <div class="es-text">No CE signals detected yet</div>
+              <div class="es-sub">Long Buildup (Price↑ + OI↑) — Calls buying opportunity</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PE Signals Grid -->
+        <div class="tab-content" id="peTabContent">
+          <div class="signals-grid" id="peSignalsGrid">
+            <div class="empty-state large">
+              <div class="es-icon">🔴</div>
+              <div class="es-text">No PE signals detected yet</div>
+              <div class="es-sub">Short Buildup (Price↓ + OI↑) — Puts buying opportunity</div>
+            </div>
           </div>
         </div>
       </section>
@@ -419,6 +460,10 @@
               <div class="metric-row">
                 <span class="mr-label">CE Signals Found</span>
                 <span class="mr-val green-text" id="mrCE">0</span>
+              </div>
+              <div class="metric-row">
+                <span class="mr-label">PE Signals Found</span>
+                <span class="mr-val" id="mrPE" style="color:var(--red)">0</span>
               </div>
               <div class="metric-row">
                 <span class="mr-label">Signal Hit Rate</span>
