@@ -156,6 +156,12 @@ MIN_OI_CONTRACTS = _env_int('MIN_OI_CONTRACTS',  50000)  # Minimum absolute OI c
 # Signal Cooldown  (Improvement 6)
 SIGNAL_COOLDOWN_MINUTES = _env_int('SIGNAL_COOLDOWN_MINUTES', 30)
 
+# PE Signal Settings
+ENABLE_PE_SIGNALS  = os.getenv('ENABLE_PE_SIGNALS', 'True').lower() == 'true'
+PE_PRICE_CHANGE_MIN = _env_float('PE_PRICE_CHANGE_MIN', 0.3)
+# PE requires price to DROP by at least this % (absolute value)
+# Example: 0.3 means price must fall at least -0.3%
+
 # Logging
 LOG_LEVEL         = os.getenv('LOG_LEVEL', 'INFO')
 
@@ -270,6 +276,8 @@ def telegram_startup():
     )
     if ENABLE_ADX_FILTER:
         msg += f"📉 ADX Filter : Enabled (min {ADX_MIN}, period {ADX_PERIOD})\n"
+    if ENABLE_PE_SIGNALS:
+        msg += f"🔴 PE Signals  : Enabled (Short Buildup)\n"
     if ENABLE_PCR_FILTER:
         msg += f"🌡 PCR Filter : Enabled (max PCR {PCR_MAX})\n"
     if ENABLE_TIME_FILTER:
@@ -344,6 +352,77 @@ def telegram_ce_signals(ce_candidates, scan_num):
             )
 
         # ── Footer (last part only) ──
+        if part == total_chunks:
+            msg += (
+                "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "📌 <b>Strike Selection Guide:</b>\n"
+                "   ATM = Best if strong signal\n"
+                "   1 OTM = If volume very high\n"
+                "   Avoid 2+ OTM strikes\n"
+                "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                "⚠️ <i>OISignalFlow v1.0.0 — for education.\n"
+                "Not financial advice. Trade carefully.</i>"
+            )
+
+        send_telegram(msg)
+
+
+def telegram_pe_signals(pe_candidates, scan_num):
+    """Sent when PE buy candidates are found — chunked max 10 per message"""
+    CHUNK_SIZE   = 10
+    now          = now_ist().strftime("%d-%m-%Y %H:%M")
+    chunks       = [pe_candidates[i:i+CHUNK_SIZE]
+                    for i in range(0, len(pe_candidates), CHUNK_SIZE)]
+    total_chunks = len(chunks)
+
+    for part, chunk in enumerate(chunks, 1):
+        msg = ""
+
+        if part == 1:
+            msg += (
+                f"🔴 <b>OISignalFlow v1.0.0 — PE BUY ALERT!</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"🕐 Time   : {now}\n"
+                f"🔍 Scan # : {scan_num}\n"
+                f"📊 Found  : {len(pe_candidates)} stock(s)\n"
+            )
+            if total_chunks > 1:
+                msg += f"📄 Part   : {part} of {total_chunks}\n"
+            msg += "━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+        else:
+            msg += (
+                f"🔴 <b>PE BUY ALERT — Part {part}/{total_chunks}</b>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━━━━\n\n"
+            )
+
+        offset = (part - 1) * CHUNK_SIZE
+        for i, s in enumerate(chunk, offset + 1):
+            if s['OI_Chg_%'] >= 5 and s['Vol_Ratio'] >= 3:
+                strength = "🔥🔥 VERY STRONG"
+            elif s['OI_Chg_%'] >= 3 and s['Vol_Ratio'] >= 2:
+                strength = "🔥 STRONG"
+            else:
+                strength = "✅ MODERATE"
+
+            adx_line = (f"   📉 ADX       : {s.get('ADX', 0):.1f}\n"
+                        if ENABLE_ADX_FILTER else "")
+            confirmed_line = "   ✅ Confirmed  : YES — multi-scan signal\n" if s.get('confirmed') else ""
+
+            msg += (
+                f"<b>{i}. {s['Symbol']}</b>\n"
+                f"   💰 Price     : ₹{s['Price']}  "
+                f"({s['Price_Chg_%']:+.2f}%)\n"
+                f"   📈 OI Change : {s['OI_Chg_%']:+.2f}%\n"
+                f"   📊 Volume    : {s['Vol_Ratio']:.1f}x normal\n"
+                + adx_line +
+                f"   🔰 Signal    : {s['Signal']}\n"
+                f"   ⚡ Strength  : {strength}\n"
+                + confirmed_line +
+                f"   🎯 Action    : BUY ATM PE\n"
+                f"   🛑 Stop Loss : Close above VWAP\n"
+                f"   ⏱ Scan Time : {s['Time']}\n\n"
+            )
+
         if part == total_chunks:
             msg += (
                 "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
@@ -705,7 +784,7 @@ def save_to_excel(all_df, ce_df):
 # 📡  REAL-TIME CONFIG UPDATER  (Issue 2 — reduced call frequency)
 # ============================================================
 
-def update_config_json(scan_num, current_symbol, results, ce_candidates, pcr=None, attempted=0):
+def update_config_json(scan_num, current_symbol, results, ce_candidates, pe_candidates=None, pcr=None, attempted=0):
     """Update config.json with real-time scan data for live dashboard"""
     try:
         # Compute market mood from current results
@@ -755,6 +834,7 @@ def update_config_json(scan_num, current_symbol, results, ce_candidates, pcr=Non
                 "stocks_attempted"     : attempted,
                 "signals_found"        : len(ce_candidates),
                 "ce_candidates"        : len(ce_candidates),
+                "pe_candidates"        : len(pe_candidates) if pe_candidates else 0,
                 "market_mood"          : mood,
                 "long_buildup_count"   : long_bu,
                 "short_buildup_count"  : short_bu,
@@ -762,7 +842,8 @@ def update_config_json(scan_num, current_symbol, results, ce_candidates, pcr=Non
                 "long_unwinding_count" : len([r for r in results if "LONG UNWINDING"  in r['Signal']]),
                 "pcr"                  : pcr if pcr is not None else 0,
                 "pcr_filter_enabled"   : ENABLE_PCR_FILTER,
-                "pcr_max"              : PCR_MAX
+                "pcr_max"              : PCR_MAX,
+                "pe_signals_found"     : len(pe_candidates) if pe_candidates else 0,
             },
             "recent_signals": [
                 {
@@ -781,6 +862,23 @@ def update_config_json(scan_num, current_symbol, results, ce_candidates, pcr=Non
                     "time"         : s['Time']
                 }
                 for s in ce_candidates
+            ],
+            "recent_pe_signals": [
+                {
+                    "symbol"       : s['Symbol'],
+                    "price"        : s['Price'],
+                    "price_change" : s['Price_Chg_%'],
+                    "oi_change"    : s['OI_Chg_%'],
+                    "volume_ratio" : s['Vol_Ratio'],
+                    "signal"       : s['Signal'],
+                    "strength"     : (
+                        "🔥🔥 VERY STRONG" if s['OI_Chg_%'] >= 5
+                        else "🔥 STRONG"   if s['OI_Chg_%'] >= 3
+                        else "✅ MODERATE"
+                    ),
+                    "time"         : s['Time']
+                }
+                for s in (pe_candidates or [])
             ],
             "all_scan_results": [
                 {
@@ -820,6 +918,8 @@ scan_count = 0
 current_pcr_value = None    # Latest PCR value, passed to update_config_json
 confirmed_signals = {}      # Improvement 5: { 'SYMBOL': consecutive_count }
 last_alerted      = {}      # Improvement 6: { 'SYMBOL': datetime_of_last_alert }
+confirmed_pe_signals = {}  # PE confirmation tracking
+last_pe_alerted      = {}  # PE cooldown tracking
 
 def run_scanner():
     global scan_count, current_pcr_value
@@ -865,6 +965,7 @@ def run_scanner():
     pcr_blocked      = False  # True when PCR too high — blocks CE alerts only
     results          = []
     ce_candidates    = []
+    pe_candidates    = []
     stocks_attempted = 0   # counts ALL stocks tried including filtered/failed
 
     # ── Scan Each Stock ──
@@ -905,7 +1006,7 @@ def run_scanner():
                         + (f" | ADX: {row.get('ADX',0):.1f}" if ENABLE_ADX_FILTER else "")
                     )
                     # Update dashboard immediately on new confirmed CE signal
-                    update_config_json(scan_count, symbol, results, ce_candidates, pcr=current_pcr_value, attempted=stocks_attempted)
+                    update_config_json(scan_count, symbol, results, ce_candidates, pe_candidates=pe_candidates, pcr=current_pcr_value, attempted=stocks_attempted)
                     cfg_updated = True
                 else:
                     # Pending: needs more consecutive scans
@@ -918,12 +1019,42 @@ def run_scanner():
                 if symbol in confirmed_signals:
                     confirmed_signals.pop(symbol)
 
+            # 🔴 PE Signal Detection (Short Buildup) 🔴
+            if ENABLE_PE_SIGNALS:
+                is_short_buildup = row['Signal'] == "🔴 SHORT BUILDUP"
+                pe_oi_ok    = row['OI_Chg_%']         >= OI_CHANGE_MIN
+                pe_price_ok = abs(row['Price_Chg_%'])  >= PE_PRICE_CHANGE_MIN
+                pe_vol_ok   = row['Vol_Ratio']         >= VOLUME_MULT
+                pe_adx_ok   = (not ENABLE_ADX_FILTER) or (row.get('ADX', 0) >= ADX_MIN)
+
+                if is_short_buildup and pe_oi_ok and pe_price_ok and pe_vol_ok and pe_adx_ok:
+                    confirmed_pe_signals[symbol] = confirmed_pe_signals.get(symbol, 0) + 1
+                    row['confirm_count'] = confirmed_pe_signals[symbol]
+
+                    if confirmed_pe_signals[symbol] >= CONFIRM_SCANS:
+                        row['confirmed'] = True
+                        pe_candidates.append(row)
+                        log.info(f"CONFIRMED PE signal: {symbol} — "
+                                 f"{confirmed_pe_signals[symbol]} consecutive scans")
+                        update_config_json(scan_count, symbol, results,
+                                          ce_candidates, pe_candidates=pe_candidates, pcr=current_pcr_value,
+                                          attempted=stocks_attempted)
+                        cfg_updated = True
+                    else:
+                        log.info(f"Pending PE confirmation: {symbol} — "
+                                 f"{confirmed_pe_signals[symbol]}/{CONFIRM_SCANS} scans")
+                        print(f"  {YELLOW}⏳ PE Confirming: {symbol} "
+                              f"({confirmed_pe_signals[symbol]}/{CONFIRM_SCANS} scans){RESET}")
+                else:
+                    if symbol in confirmed_pe_signals:
+                        confirmed_pe_signals.pop(symbol)
+
         # Rate limit — avoid hammering NSE API  (Issue 3)
         time.sleep(REQUEST_DELAY)
 
         # Update dashboard every 10 stocks — skip if already updated this iteration  (Issue 2)
         if idx % 10 == 0 and not cfg_updated:
-            update_config_json(scan_count, symbol, results, ce_candidates, pcr=current_pcr_value, attempted=stocks_attempted)
+            update_config_json(scan_count, symbol, results, ce_candidates, pe_candidates=pe_candidates, pcr=current_pcr_value, attempted=stocks_attempted)
 
     # ── Improvement 6: Cooldown Filter for Telegram alerts ──
     now_dt = now_ist()
@@ -943,8 +1074,26 @@ def run_scanner():
     for s in fresh_signals:
         last_alerted[s['Symbol']] = now_dt
 
+    # 🔴 PE Cooldown Filter 🔴
+    fresh_pe_signals    = []
+    pe_cooldown_signals = []
+    for s in pe_candidates:
+        sym  = s['Symbol']
+        last = last_pe_alerted.get(sym)
+        if last is None or (now_dt - last).total_seconds() >= SIGNAL_COOLDOWN_MINUTES * 60:
+            fresh_pe_signals.append(s)
+        else:
+            mins_ago = int((now_dt - last).total_seconds() / 60)
+            pe_cooldown_signals.append((sym, mins_ago))
+            log.info(f"PE Cooldown active for {sym} — alerted {mins_ago} min ago")
+
+    for s in fresh_pe_signals:
+        last_pe_alerted[s['Symbol']] = now_dt
+
     # ── CE Candidates Output ──
     print(f"\n  {BOLD}{GREEN}✅ CE BUY SIGNALS: {len(ce_candidates)} found{RESET}")
+    if ENABLE_PE_SIGNALS:
+        print(f"  {BOLD}{RED}🔴 PE BUY SIGNALS: {len(pe_candidates)} found{RESET}")
     print(f"  {'─'*53}")
     log.info(f"Scan #{scan_count} complete — {len(ce_candidates)} CE signals from {len(results)} stocks")
 
@@ -975,6 +1124,29 @@ def run_scanner():
             print(f"    🎯 Action    : BUY ATM CE")
             print(f"    🛑 Stop Loss : Below VWAP")
 
+        # 🔴 PE Candidates Terminal Output 🔴
+        if ENABLE_PE_SIGNALS and pe_candidates:
+            print(f"\n  {BOLD}{RED}🔴 PE SIGNALS DETAIL{RESET}")
+            print(f"  {'🔴'*53}")
+            for s in pe_candidates:
+                strength = (
+                    "🔥🔥 VERY STRONG" if s['OI_Chg_%'] >= 5
+                    else "🔥 STRONG"   if s['OI_Chg_%'] >= 3
+                    else "✅ MODERATE"
+                )
+                print(f"\n  {BOLD}{RED}🔴 {s['Symbol']}{RESET}")
+                print(f"    💰 Price     : ₹{s['Price']}  ({s['Price_Chg_%']:+.2f}%)")
+                print(f"    📈 OI Change : {s['OI_Chg_%']:+.2f}%")
+                print(f"    📊 Volume    : {s['Vol_Ratio']:.1f}x normal")
+                if ENABLE_ADX_FILTER:
+                    print(f"    📉 ADX       : {s.get('ADX', 0):.1f}")
+                print(f"    🔰 Signal    : {s['Signal']}")
+                print(f"    ⚡ Strength  : {strength}")
+                if s.get('confirmed'):
+                    print(f"    ✅ Confirmed : YES — {s.get('confirm_count', CONFIRM_SCANS)} scans")
+                print(f"    🎯 Action    : BUY ATM PE")
+                print(f"    🛑 Stop Loss : Close above VWAP")
+
         # Improvement 2 + 6 — Telegram only for fresh signals within best time window
         if fresh_signals and is_best_trading_window() and not pcr_blocked:
             telegram_ce_signals(fresh_signals, scan_count)
@@ -997,6 +1169,32 @@ def run_scanner():
                 message = f"Stocks: {names}",
                 timeout = 10
             )
+
+        # 🔴 PE Telegram Alerts 🔴
+        if ENABLE_PE_SIGNALS:
+            if fresh_pe_signals and is_best_trading_window():
+                telegram_pe_signals(fresh_pe_signals, scan_count)
+            elif fresh_pe_signals and not is_best_trading_window():
+                now_str = now_ist().strftime("%H:%M")
+                print(f"  {YELLOW}⚠️  PE signals found but outside "
+                      f"trading window ({now_str}). "
+                      f"Telegram suppressed.{RESET}")
+                log.info(f"PE signals suppressed — outside trading window")
+
+            if pe_cooldown_signals:
+                print(f"  {YELLOW}🕐 PE Cooldown: "
+                      + ", ".join([f"{s}({m}m ago)"
+                        for s, m in pe_cooldown_signals])
+                      + f"{RESET}")
+
+            # Desktop notification for PE signals
+            if DESKTOP_NOTIFY and pe_candidates:
+                names = ", ".join([s['Symbol'] for s in pe_candidates])
+                notification.notify(
+                    title   = "🔴 OISignalFlow — PE Buy Signal!",
+                    message = f"Short Buildup: {names}",
+                    timeout = 10
+                )
     else:
         print(f"\n  {YELLOW}  No CE signals this scan. Market may be choppy.{RESET}")
         if scan_count % 3 == 0:
@@ -1020,7 +1218,7 @@ def run_scanner():
             telegram_summary(results, scan_count)
 
         # Final complete update after scan ends  (Issue 2)
-        update_config_json(scan_count, "", results, ce_candidates, pcr=current_pcr_value, attempted=stocks_attempted)
+        update_config_json(scan_count, "", results, ce_candidates, pe_candidates=pe_candidates, pcr=current_pcr_value, attempted=stocks_attempted)
 
     print(f"\n  {CYAN}⏰ Next scan in {SCAN_INTERVAL} minutes...{RESET}")
     print(f"  {CYAN}{'═'*53}{RESET}\n")
@@ -1143,6 +1341,10 @@ if __name__ == "__main__":
         print(f"  🌡 PCR Filter: Enabled (max PCR {PCR_MAX})")
     else:
         print(f"  🌡 PCR Filter: Disabled")
+    if ENABLE_PE_SIGNALS:
+        print(f"  🔴 PE Signals : Enabled (Short Buildup detection)")
+    else:
+        print(f"  🔴 PE Signals : Disabled")
     if ENABLE_TIME_FILTER:
         print(f"  ⏰ Time Filter: {WINDOW1_START}–{WINDOW1_END} & {WINDOW2_START}–{WINDOW2_END}")
     else:
@@ -1157,7 +1359,7 @@ if __name__ == "__main__":
              f"Vol≥{VOLUME_MULT}x | delay={REQUEST_DELAY}s | "
              f"ADX filter={'ON' if ENABLE_ADX_FILTER else 'OFF'}"
              + (f" | ADX≥{ADX_MIN}/period={ADX_PERIOD}" if ENABLE_ADX_FILTER else "")
-             + f" | MinPrice≥₹{MIN_STOCK_PRICE} | timezone=IST(UTC+5:30)")
+             + f" | MinPrice≥₹{MIN_STOCK_PRICE} | PE={'ON' if ENABLE_PE_SIGNALS else 'OFF'} | timezone=IST(UTC+5:30)")
 
     # ── Send Telegram startup message ──
     print(f"{CYAN}Testing Telegram connection...{RESET}")
