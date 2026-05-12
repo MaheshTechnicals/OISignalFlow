@@ -1008,6 +1008,9 @@ body::before {
   .data-table td { padding: 7px 8px; }
 }
 
-/* PE action button — red theme */
+/* PE action button — red theme for PE signal cards */
 .pe-action {
+  color: var(--red);
+  border-color: var(--red);
+  font-weight: 600;
 }
