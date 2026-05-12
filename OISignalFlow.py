@@ -134,16 +134,16 @@ OUTPUT_FILE       = os.getenv('OUTPUT_FILE', 'OISignalFlow_Results.xlsx')
 REQUEST_DELAY     = _env_float('REQUEST_DELAY', 0.3)      # Seconds between NSE requests
 
 # ADX Trend Filter  (Issue 8)
-ENABLE_ADX_FILTER = os.getenv('ENABLE_ADX_FILTER', 'False') == 'True'
+ENABLE_ADX_FILTER = os.getenv('ENABLE_ADX_FILTER', 'False').lower() == 'true'
 ADX_MIN           = _env_float('ADX_MIN', 25.0)           # Min ADX for strong trend
 ADX_PERIOD        = _env_int('ADX_PERIOD', 14)            # Standard ADX period — 14 is the industry default
 
 # PCR Market Filter  (Improvement 1)
-ENABLE_PCR_FILTER = os.getenv('ENABLE_PCR_FILTER', 'False') == 'True'
+ENABLE_PCR_FILTER = os.getenv('ENABLE_PCR_FILTER', 'False').lower() == 'true'
 PCR_MAX           = _env_float('PCR_MAX', 1.2)            # Block CE signals if PCR above this value
 
 # Time Window Filter  (Improvement 2)
-ENABLE_TIME_FILTER = os.getenv('ENABLE_TIME_FILTER', 'True') == 'True'
+ENABLE_TIME_FILTER = os.getenv('ENABLE_TIME_FILTER', 'True').lower() == 'true'
 WINDOW1_START      = os.getenv('WINDOW1_START', '09:30')
 WINDOW1_END        = os.getenv('WINDOW1_END',   '11:30')
 WINDOW2_START      = os.getenv('WINDOW2_START', '14:00')
@@ -840,20 +840,21 @@ def run_scanner():
         current_pcr = fetch_pcr()
         if current_pcr is not None:
             if current_pcr > PCR_MAX:
+                pcr_blocked = True
                 print(f"  {RED}🚫 PCR = {current_pcr} > {PCR_MAX} "
-                      f"→ Market BEARISH. Skipping CE scan.{RESET}")
-                log.warning(f"PCR {current_pcr} exceeds max {PCR_MAX} — CE scan skipped")
+                      f"→ Market BEARISH. CE alerts blocked — scan continues.{RESET}")
+                log.warning(f"PCR {current_pcr} exceeds max {PCR_MAX} — CE alerts blocked but scan continues")
                 send_telegram(
                     f"🚫 <b>OISignalFlow — PCR Alert!</b>\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                     f"🌡 Nifty PCR : {current_pcr}\n"
                     f"⚠️ PCR > {PCR_MAX} → Market is BEARISH\n"
-                    f"❌ CE signals blocked this scan\n"
+                    f"❌ CE alerts blocked — scan continues\n"
                     f"━━━━━━━━━━━━━━━━━━━━━━━━━\n"
                     f"<i>— OISignalFlow v1.0.0</i>"
                 )
-                return
             else:
+                pcr_blocked = False
                 print(f"  {GREEN}✅ PCR = {current_pcr} → Market OK for CE buying{RESET}")
                 log.info(f"PCR {current_pcr} within limit — CE scan proceeding")
         else:
@@ -861,6 +862,7 @@ def run_scanner():
 
     current_pcr_value = current_pcr   # Store for update_config_json calls
 
+    pcr_blocked      = False  # True when PCR too high — blocks CE alerts only
     results          = []
     ce_candidates    = []
     stocks_attempted = 0   # counts ALL stocks tried including filtered/failed
@@ -974,8 +976,12 @@ def run_scanner():
             print(f"    🛑 Stop Loss : Below VWAP")
 
         # Improvement 2 + 6 — Telegram only for fresh signals within best time window
-        if fresh_signals and is_best_trading_window():
+        if fresh_signals and is_best_trading_window() and not pcr_blocked:
             telegram_ce_signals(fresh_signals, scan_count)
+        elif fresh_signals and pcr_blocked:
+            print(f"  {YELLOW}⚠️  CE signals found but PCR={current_pcr} "
+                  f"> {PCR_MAX} — Telegram alerts blocked.{RESET}")
+            log.info(f"CE signals suppressed — PCR {current_pcr} above max {PCR_MAX}")
         elif fresh_signals and not is_best_trading_window():
             now_str = now_ist().strftime("%H:%M")
             print(f"  {YELLOW}⚠️  CE signals found but outside best "
@@ -1069,7 +1075,20 @@ def job():
             telegram_market_closed()
             log.info("Market closed — sent market-closed alert")
             market_was_open = False
-        print(f"  {YELLOW}⏸  Market closed. OISignalFlow waiting...{RESET}")
+            try:
+                with open('config.json', 'r') as f:
+                    cfg = json.load(f)
+                cfg['status']['market_open']     = False
+                cfg['status']['system_status']   = 'closed'
+                cfg['status']['scanner_running'] = False
+                cfg['status']['last_update']     = now_ist().strftime("%Y-%m-%d %H:%M:%S")
+                with open('config.json', 'w') as f:
+                    json.dump(cfg, f, indent=2)
+                log.info("config.json updated — market_open set to False")
+            except Exception as e:
+                log.warning(f"Could not update config.json on market close: {e}")
+        now_str = now_ist().strftime("%H:%M")
+        print(f"  {YELLOW}⏸  [{now_str}] Market closed. OISignalFlow waiting...{RESET}")
 
 
 # ============================================================

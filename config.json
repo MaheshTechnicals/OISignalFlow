@@ -3,7 +3,7 @@
   "status": {
     "system_status": "scanning",
     "market_open": true,
-    "last_update": "2026-05-11 10:38:54",
+    "last_update": "2026-05-12 11:58:43",
     "scanner_running": true,
     "stocks_attempted": 201,
     "stocks_total": 209,
@@ -18,7 +18,7 @@
     "volume_mult": 1.5,
     "request_delay": 0.3,
     "adx_filter_enabled": false,
-    "adx_min": 25.0,
+    "adx_min": 20.0,
     "output_file": "OISignalFlow_Results.xlsx",
     "telegram_enabled": true,
     "desktop_notifications": true,
@@ -39,8 +39,8 @@
     "short_covering_count": 0,
     "long_unwinding_count": 0,
     "pcr": 0,
-    "pcr_filter_enabled": false,
-    "pcr_max": 1.2
+    "pcr_filter_enabled": true,
+    "pcr_max": 1.5
   },
   "recent_signals": [],
   "all_scan_results": []
