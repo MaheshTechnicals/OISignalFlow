@@ -392,7 +392,7 @@ function updateLiveSignals(data) {
   grid.innerHTML = sigs.map(s => buildSignalCard(s, true)).join('');
 }
 
-function buildSignalCard(s, markNew = false) {
+function buildSignalCard(s, markNew = false, isPE = false) {
   const veryStrong  = s.strength && s.strength.includes('VERY STRONG');
   const priceClass  = parseFloat(s.price_change) >= 0 ? 'pos' : 'neg';
   const priceSign   = parseFloat(s.price_change) >= 0 ? '+' : '';
@@ -425,7 +425,7 @@ function buildSignalCard(s, markNew = false) {
     </div>
     <div class="sc-footer">
       <span class="strength-tag${veryStrong ? ' very' : ''}">${esc(s.strength || '✅ MODERATE')}</span>
-      <span class="sc-action">🎯 BUY ATM CE</span>
+      <span class="sc-action ${isPE ? 'pe-action' : ''}">${isPE ? '🔴 BUY ATM PE' : '🎯 BUY ATM CE'}</span>
     </div>
   </div>`;
 }
@@ -443,7 +443,7 @@ function updateRecentPeSignals(data) {
     return;
   }
 
-  grid.innerHTML = peSigs.map(s => buildSignalCard(s)).join('');
+  grid.innerHTML = peSigs.map(s => buildSignalCard(s, false, true)).join('');
 }
 
 // ─────────────────────────────────────────────
@@ -459,7 +459,7 @@ function updateLivePeSignals(data) {
     return;
   }
 
-  grid.innerHTML = peSigs.map(s => buildSignalCard(s, true)).join('');
+  grid.innerHTML = peSigs.map(s => buildSignalCard(s, true, true)).join('');
 }
 
 // ─────────────────────────────────────────────
@@ -790,6 +790,8 @@ function checkNewSignals(data) {
   // Seed seenSignals on first load — never alert for pre-existing signals
   if (APP.firstLoad) {
     signals.forEach(s => APP.seenSignals.add(`${s.symbol}_${s.time}`));
+    const peSigs = data.recent_pe_signals || [];
+    peSigs.forEach(s => APP.seenSignals.add(`PE_${s.symbol}_${s.time}`));
     APP.firstLoad = false;
     APP.prevSignalCount = signals.length;
     return;
@@ -804,6 +806,23 @@ function checkNewSignals(data) {
       toast(
         '🟢',
         `CE Signal: ${s.symbol}`,
+        `OI: ${sign(s.oi_change)}${fmtNum(s.oi_change, 2)}%  |  Price: ${sign(s.price_change)}${fmtNum(s.price_change, 2)}%  |  ${s.strength || 'MODERATE'}`,
+        true,
+        10000
+      );
+    }
+  });
+
+  // Check for new PE signals
+  const peSigs = data.recent_pe_signals || [];
+  peSigs.forEach(s => {
+    const key = `PE_${s.symbol}_${s.time}`;
+    if (!APP.seenSignals.has(key)) {
+      APP.seenSignals.add(key);
+      SOUNDS.signal();
+      toast(
+        '🔴',
+        `PE Signal: ${s.symbol}`,
         `OI: ${sign(s.oi_change)}${fmtNum(s.oi_change, 2)}%  |  Price: ${sign(s.price_change)}${fmtNum(s.price_change, 2)}%  |  ${s.strength || 'MODERATE'}`,
         true,
         10000
@@ -880,13 +899,6 @@ function initTableScrollHints() {
 // Re-run hints after table data updates (tables get innerHTML replaced)
 const _origRenderFilter  = renderFilterTable;
 const _origRenderResults = renderResultsTable;
-
-// ─────────────────────────────────────────────
-// Keyboard shortcut: Alt+S = sound toggle
-// ─────────────────────────────────────────────
-document.addEventListener('keydown', e => {
-  if (e.altKey && e.key === 's') $('soundBtn').click();
-});
 
 // ─────────────────────────────────────────────
 // Init

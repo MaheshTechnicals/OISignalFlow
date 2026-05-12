@@ -924,6 +924,7 @@ last_pe_alerted      = {}  # PE cooldown tracking
 def run_scanner():
     global scan_count, current_pcr_value
 
+    pcr_blocked = False  # Ensure default value before PCR check
     scan_count += 1
 
     now = now_ist().strftime("%d-%m-%Y %H:%M:%S")
@@ -962,7 +963,6 @@ def run_scanner():
 
     current_pcr_value = current_pcr   # Store for update_config_json calls
 
-    pcr_blocked      = False  # True when PCR too high — blocks CE alerts only
     results          = []
     ce_candidates    = []
     pe_candidates    = []
@@ -1124,29 +1124,6 @@ def run_scanner():
             print(f"    🎯 Action    : BUY ATM CE")
             print(f"    🛑 Stop Loss : Below VWAP")
 
-        # 🔴 PE Candidates Terminal Output 🔴
-        if ENABLE_PE_SIGNALS and pe_candidates:
-            print(f"\n  {BOLD}{RED}🔴 PE SIGNALS DETAIL{RESET}")
-            print(f"  {'🔴'*53}")
-            for s in pe_candidates:
-                strength = (
-                    "🔥🔥 VERY STRONG" if s['OI_Chg_%'] >= 5
-                    else "🔥 STRONG"   if s['OI_Chg_%'] >= 3
-                    else "✅ MODERATE"
-                )
-                print(f"\n  {BOLD}{RED}🔴 {s['Symbol']}{RESET}")
-                print(f"    💰 Price     : ₹{s['Price']}  ({s['Price_Chg_%']:+.2f}%)")
-                print(f"    📈 OI Change : {s['OI_Chg_%']:+.2f}%")
-                print(f"    📊 Volume    : {s['Vol_Ratio']:.1f}x normal")
-                if ENABLE_ADX_FILTER:
-                    print(f"    📉 ADX       : {s.get('ADX', 0):.1f}")
-                print(f"    🔰 Signal    : {s['Signal']}")
-                print(f"    ⚡ Strength  : {strength}")
-                if s.get('confirmed'):
-                    print(f"    ✅ Confirmed : YES — {s.get('confirm_count', CONFIRM_SCANS)} scans")
-                print(f"    🎯 Action    : BUY ATM PE")
-                print(f"    🛑 Stop Loss : Close above VWAP")
-
         # Improvement 2 + 6 — Telegram only for fresh signals within best time window
         if fresh_signals and is_best_trading_window() and not pcr_blocked:
             telegram_ce_signals(fresh_signals, scan_count)
@@ -1169,36 +1146,59 @@ def run_scanner():
                 message = f"Stocks: {names}",
                 timeout = 10
             )
-
-        # 🔴 PE Telegram Alerts 🔴
-        if ENABLE_PE_SIGNALS:
-            if fresh_pe_signals and is_best_trading_window():
-                telegram_pe_signals(fresh_pe_signals, scan_count)
-            elif fresh_pe_signals and not is_best_trading_window():
-                now_str = now_ist().strftime("%H:%M")
-                print(f"  {YELLOW}⚠️  PE signals found but outside "
-                      f"trading window ({now_str}). "
-                      f"Telegram suppressed.{RESET}")
-                log.info(f"PE signals suppressed — outside trading window")
-
-            if pe_cooldown_signals:
-                print(f"  {YELLOW}🕐 PE Cooldown: "
-                      + ", ".join([f"{s}({m}m ago)"
-                        for s, m in pe_cooldown_signals])
-                      + f"{RESET}")
-
-            # Desktop notification for PE signals
-            if DESKTOP_NOTIFY and pe_candidates:
-                names = ", ".join([s['Symbol'] for s in pe_candidates])
-                notification.notify(
-                    title   = "🔴 OISignalFlow — PE Buy Signal!",
-                    message = f"Short Buildup: {names}",
-                    timeout = 10
-                )
     else:
         print(f"\n  {YELLOW}  No CE signals this scan. Market may be choppy.{RESET}")
         if scan_count % 3 == 0:
             telegram_no_signal(scan_count)
+
+    # 🔴 PE Candidates Terminal Output 🔴 (Independent of CE signals)
+    if ENABLE_PE_SIGNALS and pe_candidates:
+        print(f"\n  {BOLD}{RED}🔴 PE SIGNALS DETAIL{RESET}")
+        print(f"  {'🔴'*53}")
+        for s in pe_candidates:
+            strength = (
+                "🔥🔥 VERY STRONG" if s['OI_Chg_%'] >= 5
+                else "🔥 STRONG"   if s['OI_Chg_%'] >= 3
+                else "✅ MODERATE"
+            )
+            print(f"\n  {BOLD}{RED}🔴 {s['Symbol']}{RESET}")
+            print(f"    💰 Price     : ₹{s['Price']}  ({s['Price_Chg_%']:+.2f}%)")
+            print(f"    📈 OI Change : {s['OI_Chg_%']:+.2f}%")
+            print(f"    📊 Volume    : {s['Vol_Ratio']:.1f}x normal")
+            if ENABLE_ADX_FILTER:
+                print(f"    📉 ADX       : {s.get('ADX', 0):.1f}")
+            print(f"    🔰 Signal    : {s['Signal']}")
+            print(f"    ⚡ Strength  : {strength}")
+            if s.get('confirmed'):
+                print(f"    ✅ Confirmed : YES — {s.get('confirm_count', CONFIRM_SCANS)} scans")
+            print(f"    🎯 Action    : BUY ATM PE")
+            print(f"    🛑 Stop Loss : Close above VWAP")
+
+    # 🔴 PE Telegram Alerts 🔴 (Independent of CE signals)
+    if ENABLE_PE_SIGNALS:
+        if fresh_pe_signals and is_best_trading_window():
+            telegram_pe_signals(fresh_pe_signals, scan_count)
+        elif fresh_pe_signals and not is_best_trading_window():
+            now_str = now_ist().strftime("%H:%M")
+            print(f"  {YELLOW}⚠️  PE signals found but outside "
+                  f"trading window ({now_str}). "
+                  f"Telegram suppressed.{RESET}")
+            log.info(f"PE signals suppressed — outside trading window")
+
+        if pe_cooldown_signals:
+            print(f"  {YELLOW}🕐 PE Cooldown: "
+                  + ", ".join([f"{s}({m}m ago)"
+                    for s, m in pe_cooldown_signals])
+                  + f"{RESET}")
+
+        # Desktop notification for PE signals
+        if DESKTOP_NOTIFY and pe_candidates:
+            names = ", ".join([s['Symbol'] for s in pe_candidates])
+            notification.notify(
+                title   = "🔴 OISignalFlow — PE Buy Signal!",
+                message = f"Short Buildup: {names}",
+                timeout = 10
+            )
 
     # ── Full Results Table ──
     print(f"\n  {BOLD}{CYAN}📊 FULL SCAN TABLE{RESET}")
