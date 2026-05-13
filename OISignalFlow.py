@@ -638,7 +638,7 @@ def calculate_adx(data, period=14):
             data.get('Low Price',  data.get('Low',  pd.Series(dtype=float))),
             errors='coerce')
         close = pd.to_numeric(
-            data.get('Close Price',data.get('Close',pd.Series(dtype=float))),
+            data.get('LAST_TRADED_PRICE', data.get('Close Price', data.get('Close', pd.Series(dtype=float)))),
             errors='coerce')
 
         if high.empty or low.empty or close.empty:
@@ -692,18 +692,18 @@ def get_oi_data(symbol):
         latest = data.iloc[-1]
         prev   = data.iloc[-2]
 
-        current_oi    = float(latest.get('Open Interest', 0))
-        prev_oi       = float(prev.get('Open Interest', 0))
+        current_oi    = float(latest.get('OPEN_INT', 0))
+        prev_oi       = float(prev.get('OPEN_INT', 0))
 
         # Improvement 4 — Skip stocks with insufficient absolute OI
         if current_oi < MIN_OI_CONTRACTS:
             log.debug(f"Skipping {symbol} — OI {int(current_oi)} below MIN_OI_CONTRACTS {MIN_OI_CONTRACTS}")
             return None
 
-        current_price = float(latest.get('Close Price', 0))
-        prev_price    = float(prev.get('Close Price', 0))
-        current_vol   = float(latest.get('Volume', 0))
-        prev_vol      = float(prev.get('Volume', 0))
+        current_price = float(latest.get('LAST_TRADED_PRICE', 0))
+        prev_price    = float(prev.get('LAST_TRADED_PRICE', 0))
+        current_vol   = float(latest.get('TOT_TRADED_QTY', 0))
+        prev_vol      = float(prev.get('TOT_TRADED_QTY', 0))
 
         if prev_oi == 0 or prev_price == 0 or prev_vol == 0:
             return None
