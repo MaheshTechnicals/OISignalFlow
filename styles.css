@@ -320,11 +320,14 @@ body::before {
 .kpi-purple::before { background: linear-gradient(135deg, var(--purple), #a855f7); }
 .kpi-mood::before   { background: var(--grad-yellow); }
 
+.kpi-blue::before   { background: linear-gradient(135deg, rgba(0,180,255,0.15), rgba(0,180,255,0.05)); }
+
 .kpi-card:hover { transform: translateY(-4px); box-shadow: 0 14px 40px rgba(0,0,0,0.35); }
 .kpi-cyan:hover   { border-color: rgba(0,212,255,0.3); }
 .kpi-green:hover  { border-color: rgba(0,255,136,0.3); }
 .kpi-purple:hover { border-color: rgba(124,58,237,0.3); }
 .kpi-mood:hover   { border-color: rgba(255,187,0,0.3); }
+.kpi-blue:hover   { border-color: rgba(0,180,255,0.3); }
 
 .kpi-glow {
   position: absolute; bottom: -20px; right: -20px;
@@ -337,6 +340,7 @@ body::before {
 .green-glow  { background: var(--green); }
 .purple-glow { background: var(--purple); }
 .mood-glow   { background: var(--yellow); }
+.blue-glow   { background: radial-gradient(circle at 80% 50%, rgba(0,180,255,0.15), transparent 60%); }
 
 .kpi-icon-wrap { font-size: 26px; flex-shrink: 0; }
 .kpi-body { flex: 1; }
@@ -348,6 +352,7 @@ body::before {
 .kpi-cyan .kpi-val  { color: var(--cyan); }
 .kpi-green .kpi-val { color: var(--green); }
 .kpi-purple .kpi-val{ color: #a78bfa; }
+.kpi-blue .kpi-val  { color: #00b4ff; }
 .kpi-label {
   font-size: 11px; color: var(--text-3);
   text-transform: uppercase; letter-spacing: 0.6px; font-weight: 500;
@@ -380,6 +385,7 @@ body::before {
 .d-red    { background: var(--red);   box-shadow: 0 0 6px var(--red); }
 .d-yellow { background: var(--yellow);box-shadow: 0 0 6px var(--yellow); }
 .d-gray   { background: var(--text-3); }
+.d-blue   { background: #00b4ff; }
 .dist-name { font-size: 12px; color: var(--text-2); width: 106px; flex-shrink: 0; }
 .dist-bar-track {
   flex: 1; height: 6px; border-radius: 3px;
@@ -390,6 +396,7 @@ body::before {
 .db-red    { background: var(--grad-red); }
 .db-yellow { background: var(--grad-yellow); }
 .db-gray   { background: linear-gradient(90deg, var(--text-3), var(--text-2)); }
+.db-blue   { background: #00b4ff; }
 .dist-cnt { font-size: 13px; font-weight: 700; color: var(--text); width: 26px; text-align: right; }
 
 /* Scanner Mini */
@@ -443,6 +450,11 @@ body::before {
 }
 .signal-card:hover { transform: translateY(-3px); box-shadow: 0 10px 30px rgba(0,255,136,0.12); }
 .signal-card.new-card { animation: cardIn 0.5s var(--ease), glowPulse 2.5s ease-in-out 3; }
+.signal-card.hb-card {
+  border-color: rgba(0,180,255,0.25);
+  background: linear-gradient(135deg, rgba(0,180,255,0.06), var(--bg-card));
+}
+.signal-card.hb-card .sc-symbol { color: #00b4ff; }
 @keyframes cardIn {
   from { transform: scale(0.88); opacity: 0; }
   60%  { transform: scale(1.02); }
@@ -469,6 +481,19 @@ body::before {
   border: 1px solid rgba(0,255,136,0.2);
 }
 .strength-tag.very { background: var(--yellow-dim); color: var(--yellow); border-color: rgba(255,187,0,0.2); }
+.hb-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: rgba(0,180,255,0.12);
+  color: #00b4ff;
+  border: 1px solid rgba(0,180,255,0.2);
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
 .sc-action { font-size: 11px; color: var(--cyan); font-weight: 600; }
 
 /* ─────────────────────────────────────────────
@@ -663,6 +688,7 @@ body::before {
 .tag-short   { background: var(--red-dim);    color: var(--red);    border: 1px solid rgba(255,68,68,0.2); }
 .tag-cover   { background: var(--yellow-dim); color: var(--yellow); border: 1px solid rgba(255,187,0,0.2); }
 .tag-unwind  { background: rgba(255,255,255,0.04); color: var(--text-3); border: 1px solid var(--border); }
+.tag-hidden  { background: rgba(0,180,255,0.12); color: #00b4ff; border: 1px solid rgba(0,180,255,0.25); }
 
 /* Filter badges row */
 .fbadges { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -700,6 +726,7 @@ body::before {
 .pb-red    { background: var(--red); }
 .pb-yellow { background: var(--yellow); }
 .pb-gray   { background: var(--text-3); border-radius: 0 4px 4px 0; }
+.pb-blue   { background: #00b4ff; }
 
 /* Market Mood */
 .mood-body { padding: 20px 18px; display: flex; flex-direction: column; align-items: center; gap: 16px; }

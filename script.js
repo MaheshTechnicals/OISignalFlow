@@ -285,6 +285,7 @@ function updateKPIs(data) {
   animVal('kpiScans',   s.total_scans);
   animVal('kpiSignals', s.signals_found);
   animVal('kpiPeSignals', s.pe_signals_found || 0);
+  animVal('kpiHbSignals', s.hidden_bullish_count || 0);
   animVal('kpiStocks',  c.fno_stocks_total);
 
   const mood   = (s.market_mood || 'NEUTRAL').toUpperCase();
@@ -325,17 +326,20 @@ function updateOverviewRow(data) {
   }
 
   // Distribution bars
-  const total = s.long_buildup_count + s.short_buildup_count + s.short_covering_count + s.long_unwinding_count;
+  const hbCount = s.hidden_bullish_count || 0;
+  const total = s.long_buildup_count + s.short_buildup_count + s.short_covering_count + s.long_unwinding_count + hbCount;
   const pct   = n => total > 0 ? Math.round((n / total) * 100) : 0;
 
   setWidth('dbarLong',     pct(s.long_buildup_count));
   setWidth('dbarShort',    pct(s.short_buildup_count));
   setWidth('dbarCovering', pct(s.short_covering_count));
   setWidth('dbarUnwinding',pct(s.long_unwinding_count));
+  setWidth('dbarHidden',   pct(hbCount));
   setText('dcntLong',     s.long_buildup_count);
   setText('dcntShort',    s.short_buildup_count);
   setText('dcntCovering', s.short_covering_count);
   setText('dcntUnwinding',s.long_unwinding_count);
+  setText('dcntHidden',   hbCount);
 
   // Scanner mini
   const scanning = st.system_status === 'scanning';
@@ -385,7 +389,7 @@ function updateLiveSignals(data) {
   if (!grid) return;
 
   if (sigs.length === 0) {
-    grid.innerHTML = `<div class="empty-state large"><div class="es-icon">🎯</div><div class="es-text">No CE signals detected yet</div><div class="es-sub">Conditions: Long Buildup + OI ≥ ${data.configuration.oi_change_min}% + Price ≥ ${data.configuration.price_change_min}% + Volume ≥ ${data.configuration.volume_mult}x</div></div>`;
+    grid.innerHTML = `<div class="empty-state large"><div class="es-icon">🎯</div><div class="es-text">No CE signals detected yet</div><div class="es-sub">Conditions: Long Buildup or Hidden Bullish on weak chart + OI ≥ ${data.configuration.oi_change_min}% + Volume ≥ ${data.configuration.volume_mult}x</div></div>`;
     return;
   }
 
@@ -394,13 +398,30 @@ function updateLiveSignals(data) {
 
 function buildSignalCard(s, markNew = false, isPE = false) {
   const veryStrong  = s.strength && s.strength.includes('VERY STRONG');
+  const isHidden    = s.signal_type === 'hidden_bullish' || (s.signal && s.signal.includes('HIDDEN BULLISH'));
   const priceClass  = parseFloat(s.price_change) >= 0 ? 'pos' : 'neg';
   const priceSign   = parseFloat(s.price_change) >= 0 ? '+' : '';
   const oiSign      = parseFloat(s.oi_change)    >= 0 ? '+' : '';
   const newClass    = markNew ? ' new-card' : '';
+  const hbClass     = isHidden ? ' hb-card' : '';
+  const actionLabel = isPE ? '🔴 BUY ATM PE' : (isHidden ? '🎯 BUY CE — Reversal' : '🎯 BUY ATM CE');
+
+  const hbRows = isHidden ? `
+      <div class="sc-metric">
+        <span class="sc-mlabel">PE OI (Put Writing)</span>
+        <span class="sc-mval pos">+${fmtNum(s.pe_oi_change, 2)}%</span>
+      </div>
+      <div class="sc-metric">
+        <span class="sc-mlabel">CE OI (Call Unwind)</span>
+        <span class="sc-mval neg">${fmtNum(s.ce_oi_change, 2)}%</span>
+      </div>` : '';
+
+  const hbBadge = isHidden
+    ? `<span class="hb-badge">🔵 PUT WRITING + CALL UNWIND</span>`
+    : `<span class="strength-tag${veryStrong ? ' very' : ''}">${esc(s.strength || '✅ MODERATE')}</span>`;
 
   return `
-  <div class="signal-card${newClass}">
+  <div class="signal-card${newClass}${hbClass}">
     <div class="sc-header">
       <span class="sc-symbol">${esc(s.symbol)}</span>
       <span class="sc-time">⏱ ${esc(s.time)}</span>
@@ -415,17 +436,18 @@ function buildSignalCard(s, markNew = false, isPE = false) {
         <span class="sc-mval ${priceClass}">${priceSign}${fmtNum(s.price_change, 2)}%</span>
       </div>
       <div class="sc-metric">
-        <span class="sc-mlabel">OI Change</span>
-        <span class="sc-mval pos">${oiSign}${fmtNum(s.oi_change, 2)}%</span>
+        <span class="sc-mlabel">Futures OI Chg</span>
+        <span class="sc-mval ${oiSign === '+' ? 'pos' : 'neg'}">${oiSign}${fmtNum(s.oi_change, 2)}%</span>
       </div>
       <div class="sc-metric">
         <span class="sc-mlabel">Volume Ratio</span>
         <span class="sc-mval pos">${fmtNum(s.volume_ratio, 1)}x</span>
       </div>
+      ${hbRows}
     </div>
     <div class="sc-footer">
-      <span class="strength-tag${veryStrong ? ' very' : ''}">${esc(s.strength || '✅ MODERATE')}</span>
-      <span class="sc-action ${isPE ? 'pe-action' : ''}">${isPE ? '🔴 BUY ATM PE' : '🎯 BUY ATM CE'}</span>
+      ${hbBadge}
+      <span class="sc-action ${isPE ? 'pe-action' : ''}">${actionLabel}</span>
     </div>
   </div>`;
 }
@@ -550,6 +572,7 @@ function renderFilterTable(results, conf) {
         ${filterBadge(r.filters?.oi_ok,     'OI',  'fb-cyan')}
         ${filterBadge(r.filters?.price_ok,  'PR',  'fb-purple')}
         ${filterBadge(r.filters?.volume_ok, 'VOL', 'fb-orange')}
+        ${r.filters?.hb_ok ? `<span class="fbadge" style="background:rgba(0,180,255,0.15);color:#00b4ff;border:1px solid rgba(0,180,255,0.3)">HB</span>` : ''}
       </div></td>
       <td style="color:var(--text-3)">${esc(r.time)}</td>
     </tr>`;
@@ -574,16 +597,19 @@ function updateStats(data) {
   animVal('bkShort',    s.short_buildup_count);
   animVal('bkCovering', s.short_covering_count);
   animVal('bkUnwinding',s.long_unwinding_count);
+  animVal('bkHidden',   s.hidden_bullish_count || 0);
 
   // Proportional bar
-  const total = s.long_buildup_count + s.short_buildup_count + s.short_covering_count + s.long_unwinding_count;
+  const hbCount = s.hidden_bullish_count || 0;
+  const total = s.long_buildup_count + s.short_buildup_count + s.short_covering_count + s.long_unwinding_count + hbCount;
   if (total > 0) {
     $('pbGreen').style.flex  = s.long_buildup_count;
     $('pbRed').style.flex    = s.short_buildup_count;
     $('pbYellow').style.flex = s.short_covering_count;
     $('pbGray').style.flex   = s.long_unwinding_count;
+    $('pbBlue').style.flex   = hbCount;
   } else {
-    ['pbGreen','pbRed','pbYellow','pbGray'].forEach(id => $(id).style.flex = 1);
+    ['pbGreen','pbRed','pbYellow','pbGray','pbBlue'].forEach(id => $(id).style.flex = 1);
   }
 
   // Mood gauge
@@ -604,6 +630,7 @@ function updateStats(data) {
   animVal('mrStocksPerScan', conf.fno_stocks_total);
   animVal('mrCE',          s.signals_found);
   animVal('mrPE',          s.pe_signals_found || 0);
+  animVal('mrHB',          s.hidden_bullish_count || 0);
 
   const hitRate = s.stocks_scanned > 0
     ? ((s.signals_found / s.stocks_scanned) * 100).toFixed(1)
@@ -635,6 +662,7 @@ function renderResultsTable(rawResults) {
     if (filter === 'short'    && !r.signal?.includes('SHORT BUILDUP')) return false;
     if (filter === 'covering' && !r.signal?.includes('SHORT COVERING'))return false;
     if (filter === 'unwinding'&& !r.signal?.includes('LONG UNWINDING'))return false;
+    if (filter === 'hidden'   && !r.signal?.includes('HIDDEN BULLISH'))return false;
     if (filter === 'ce') {
       const f = r.filters;
       if (!(f?.signal_ok && f?.oi_ok && f?.price_ok && f?.volume_ok)) return false;
@@ -676,6 +704,7 @@ function renderResultsTable(rawResults) {
         ${filterBadge(r.filters?.oi_ok,     'OI',  'fb-cyan')}
         ${filterBadge(r.filters?.price_ok,  'PR',  'fb-purple')}
         ${filterBadge(r.filters?.volume_ok, 'VOL', 'fb-orange')}
+        ${r.filters?.hb_ok ? `<span class="fbadge" style="background:rgba(0,180,255,0.15);color:#00b4ff;border:1px solid rgba(0,180,255,0.3)">HB</span>` : ''}
       </div></td>
       <td style="color:var(--text-3)">${esc(r.time)}</td>
     </tr>`;
@@ -741,6 +770,9 @@ function updateConfig(data) {
   // Booleans
   setBoolCfg('cfgTelegram', c.telegram_enabled);
   setBoolCfg('cfgDesktop',  c.desktop_notifications);
+  if (typeof c.hidden_bullish_enabled !== 'undefined') {
+    setBoolCfg('cfgHiddenBullish', c.hidden_bullish_enabled);
+  }
 
   // System tiles
   const scannerRunning = st.scanner_running || st.system_status === 'scanning';
@@ -802,14 +834,25 @@ function checkNewSignals(data) {
     const key = `${s.symbol}_${s.time}`;
     if (!APP.seenSignals.has(key)) {
       APP.seenSignals.add(key);
+      const isHidden = s.signal_type === 'hidden_bullish' || (s.signal && s.signal.includes('HIDDEN BULLISH'));
       SOUNDS.signal();
-      toast(
-        '🟢',
-        `CE Signal: ${s.symbol}`,
-        `OI: ${sign(s.oi_change)}${fmtNum(s.oi_change, 2)}%  |  Price: ${sign(s.price_change)}${fmtNum(s.price_change, 2)}%  |  ${s.strength || 'MODERATE'}`,
-        true,
-        10000
-      );
+      if (isHidden) {
+        toast(
+          '🔵',
+          `Hidden Bullish: ${s.symbol}`,
+          `Put Writing: +${fmtNum(s.pe_oi_change, 2)}%  |  Call Unwind: ${fmtNum(s.ce_oi_change, 2)}%  |  Price: ${sign(s.price_change)}${fmtNum(s.price_change, 2)}%`,
+          true,
+          12000
+        );
+      } else {
+        toast(
+          '🟢',
+          `CE Signal: ${s.symbol}`,
+          `OI: ${sign(s.oi_change)}${fmtNum(s.oi_change, 2)}%  |  Price: ${sign(s.price_change)}${fmtNum(s.price_change, 2)}%  |  ${s.strength || 'MODERATE'}`,
+          true,
+          10000
+        );
+      }
     }
   });
 
@@ -838,6 +881,7 @@ function checkNewSignals(data) {
 // ─────────────────────────────────────────────
 function signalTag(signal) {
   if (!signal) return `<span class="tag tag-unwind">—</span>`;
+  if (signal.includes('HIDDEN BULLISH')) return `<span class="tag tag-hidden">🔵 Hidden Bullish</span>`;
   if (signal.includes('LONG BUILDUP'))  return `<span class="tag tag-long">🟢 Long Buildup</span>`;
   if (signal.includes('SHORT BUILDUP')) return `<span class="tag tag-short">🔴 Short Buildup</span>`;
   if (signal.includes('SHORT COVERING'))return `<span class="tag tag-cover">🟡 Short Covering</span>`;

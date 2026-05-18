@@ -130,6 +130,14 @@
             </div>
             <div class="kpi-glow purple-glow"></div>
           </div>
+          <div class="kpi-card kpi-blue" id="kpiHbCard">
+            <div class="kpi-icon-wrap">🔵</div>
+            <div class="kpi-body">
+              <div class="kpi-val" id="kpiHbSignals">0</div>
+              <div class="kpi-label">Hidden Bullish</div>
+            </div>
+            <div class="kpi-glow blue-glow"></div>
+          </div>
           <div class="kpi-card kpi-mood" id="kpiMoodCard">
             <div class="kpi-icon-wrap">🌡️</div>
             <div class="kpi-body">
@@ -204,6 +212,12 @@
                 <div class="dist-bar-track"><div class="dist-bar db-gray" id="dbarUnwinding"></div></div>
                 <span class="dist-cnt" id="dcntUnwinding">0</span>
               </div>
+              <div class="dist-row">
+                <span class="dist-dot d-blue"></span>
+                <span class="dist-name">Hidden Bullish</span>
+                <div class="dist-bar-track"><div class="dist-bar db-blue" id="dbarHidden"></div></div>
+                <span class="dist-cnt" id="dcntHidden">0</span>
+              </div>
             </div>
           </div>
 
@@ -260,7 +274,7 @@
 
         <!-- CE Signals Tab -->
         <div class="tabs-container">
-          <button class="tab-btn active" onclick="switchSignalTab('ce')" id="ceTab">🟢 CE Signals (Long Buildup)</button>
+          <button class="tab-btn active" onclick="switchSignalTab('ce')" id="ceTab">🟢 CE Signals (Long Buildup + Hidden Bullish)</button>
           <button class="tab-btn" onclick="switchSignalTab('pe')" id="peTab">🔴 PE Signals (Short Buildup)</button>
         </div>
 
@@ -270,7 +284,7 @@
             <div class="empty-state large">
               <div class="es-icon">🎯</div>
               <div class="es-text">No CE signals detected yet</div>
-              <div class="es-sub">Long Buildup (Price↑ + OI↑) — Calls buying opportunity</div>
+              <div class="es-sub">Long Buildup (Price↑ + OI↑) or Hidden Bullish (Put Writing + Call Unwinding) — CE opportunity</div>
             </div>
           </div>
         </div>
@@ -340,6 +354,7 @@
               <span><span class="fbadge fb-cyan">OI</span> OI ≥ min</span>
               <span><span class="fbadge fb-purple">PR</span> Price ≥ min</span>
               <span><span class="fbadge fb-orange">VOL</span> Volume ≥ mult</span>
+              <span><span class="fbadge" style="background:rgba(0,180,255,0.15);color:#00b4ff;border:1px solid rgba(0,180,255,0.3)">HB</span> Hidden Bullish</span>
             </div>
           </div>
           <div class="table-wrap">
@@ -408,6 +423,14 @@
                 </div>
                 <div class="bk-count muted-text" id="bkUnwinding">0</div>
               </div>
+              <div class="bk-item">
+                <span class="bk-emoji">🔵</span>
+                <div class="bk-info">
+                  <div class="bk-name">Hidden Bullish</div>
+                  <div class="bk-desc">Put Writing + Call Unwind — Reversal CE</div>
+                </div>
+                <div class="bk-count" style="color:#00b4ff" id="bkHidden">0</div>
+              </div>
             </div>
             <!-- Proportional bar -->
             <div class="prop-bar" id="propBar">
@@ -415,6 +438,7 @@
               <div class="pb-seg pb-red" id="pbRed"></div>
               <div class="pb-seg pb-yellow" id="pbYellow"></div>
               <div class="pb-seg pb-gray" id="pbGray"></div>
+              <div class="pb-seg pb-blue" id="pbBlue"></div>
             </div>
           </div>
 
@@ -466,6 +490,10 @@
                 <span class="mr-val" id="mrPE" style="color:var(--red)">0</span>
               </div>
               <div class="metric-row">
+                <span class="mr-label">Hidden Bullish Found</span>
+                <span class="mr-val" style="color:#00b4ff" id="mrHB">0</span>
+              </div>
+              <div class="metric-row">
                 <span class="mr-label">Signal Hit Rate</span>
                 <span class="mr-val" id="mrHitRate">0.0%</span>
               </div>
@@ -495,6 +523,7 @@
               <option value="short">Short Buildup 🔴</option>
               <option value="covering">Short Covering 🟡</option>
               <option value="unwinding">Long Unwinding ⚪</option>
+              <option value="hidden">Hidden Bullish 🔵</option>
             </select>
           </div>
         </div>
@@ -624,6 +653,13 @@
                   <span class="cfg-desc">OS system alert popups</span>
                 </div>
                 <span class="cfg-val cfg-bool" id="cfgDesktop">—</span>
+              </div>
+              <div class="cfg-row">
+                <div class="cfg-info">
+                  <span class="cfg-name">Hidden Bullish Scanner</span>
+                  <span class="cfg-desc">Put Writing + Call Unwinding on weak charts</span>
+                </div>
+                <span class="cfg-val cfg-bool" id="cfgHiddenBullish">—</span>
               </div>
               <div class="cfg-row">
                 <div class="cfg-info">

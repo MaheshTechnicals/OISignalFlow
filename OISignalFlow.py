@@ -162,6 +162,11 @@ PE_PRICE_CHANGE_MIN = _env_float('PE_PRICE_CHANGE_MIN', 0.3)
 # PE requires price to DROP by at least this % (absolute value)
 # Example: 0.3 means price must fall at least -0.3%
 
+# Hidden Bullish Reversal Settings
+ENABLE_HIDDEN_BULLISH = os.getenv('ENABLE_HIDDEN_BULLISH', 'True').lower() == 'true'
+HB_PRICE_MAX = _env_float('HB_PRICE_MAX', 0.2)    # Price must be BELOW this % (weak/recovering)
+HB_PRICE_MIN = _env_float('HB_PRICE_MIN', -3.0)   # Price must be ABOVE this % (not crashed)
+
 # Logging
 LOG_LEVEL         = os.getenv('LOG_LEVEL', 'INFO')
 
@@ -278,6 +283,9 @@ def telegram_startup():
         msg += f"📉 ADX Filter : Enabled (min {ADX_MIN}, period {ADX_PERIOD})\n"
     if ENABLE_PE_SIGNALS:
         msg += f"🔴 PE Signals  : Enabled (Short Buildup)\n"
+    if ENABLE_HIDDEN_BULLISH:
+        msg += (f"🟢 Hidden Bullish: Enabled "
+                f"(price {HB_PRICE_MIN}% to {HB_PRICE_MAX}%)\n")
     if ENABLE_PCR_FILTER:
         msg += f"🌡 PCR Filter : Enabled (max PCR {PCR_MAX})\n"
     if ENABLE_TIME_FILTER:
@@ -330,6 +338,16 @@ def telegram_ce_signals(ce_candidates, scan_num):
             else:
                 strength = "✅ MODERATE"
 
+            signal_type = "🟢 HIDDEN REVERSAL" if "HIDDEN BULLISH" in s['Signal'] else "🟢 LONG BUILDUP"
+
+            hb_detail = ""
+            if "HIDDEN BULLISH" in s['Signal']:
+                hb_detail = (
+                    f"   🟢 Put Writing : {s.get('PE_OI_Chg_%', 0):+.2f}% OI\n"
+                    f"   🔴 Call Unwind : {s.get('CE_OI_Chg_%', 0):+.2f}% OI\n"
+                    f"   🧭 Setup       : Weak chart, hidden accumulation\n"
+                )
+
             adx_line = (f"   📉 ADX       : {s.get('ADX', 0):.1f}\n"
                         if ENABLE_ADX_FILTER else "")
 
@@ -341,12 +359,14 @@ def telegram_ce_signals(ce_candidates, scan_num):
                 f"   💰 Price     : ₹{s['Price']}  "
                 f"({s['Price_Chg_%']:+.2f}%)\n"
                 f"   📈 OI Change : {s['OI_Chg_%']:+.2f}%\n"
+                + hb_detail +
                 f"   📊 Volume    : {s['Vol_Ratio']:.1f}x normal\n"
                 + adx_line +
+                f"   🧪 Type      : {signal_type}\n"
                 f"   🔰 Signal    : {s['Signal']}\n"
                 f"   ⚡ Strength  : {strength}\n"
                 + confirmed_line +
-                f"   🎯 Action    : BUY ATM CE\n"
+                f"   🎯 Action    : {'BUY ATM CE — Reversal Play' if 'HIDDEN BULLISH' in s['Signal'] else 'BUY ATM CE'}\n"
                 f"   🛑 Stop Loss : Close below VWAP\n"
                 f"   ⏱ Scan Time : {s['Time']}\n\n"
             )
@@ -464,10 +484,11 @@ def telegram_summary(results, scan_num):
     short_bu  = len(df[df['Signal'].str.contains('SHORT BUILDUP')])
     covering  = len(df[df['Signal'].str.contains('SHORT COVERING')])
     unwinding = len(df[df['Signal'].str.contains('LONG UNWINDING')])
+    hidden_bu = len(df[df['Signal'].str.contains('HIDDEN BULLISH')])
 
-    if long_bu > short_bu:
+    if (long_bu + hidden_bu) > short_bu:
         mood = "🟢 BULLISH"
-    elif short_bu > long_bu:
+    elif short_bu > (long_bu + hidden_bu):
         mood = "🔴 BEARISH"
     else:
         mood = "🟡 NEUTRAL"
@@ -484,6 +505,7 @@ def telegram_summary(results, scan_num):
         f"🔴 Short Buildup : {short_bu} stocks\n"
         f"🟡 Short Covering: {covering} stocks\n"
         f"⚪ Long Unwinding: {unwinding} stocks\n"
+        f"🔵 Hidden Bullish: {hidden_bu} stocks\n"
         "━━━━━━━━━━━━━━━━━━━━━━━━━\n"
         f"🌡 Market Mood   : {mood}\n"
     )
@@ -677,6 +699,71 @@ def calculate_adx(data, period=14):
         return 0.0
 
 
+def get_option_oi_data(symbol):
+    """Fetch CE/PE OI totals and change % from option chain data."""
+    try:
+        data = derivatives.option_price_volume_data(
+            symbol=symbol,
+            instrument='OPTSTK',
+            period='1D'
+        )
+
+        if data is None or data.empty:
+            return None
+
+        date_col = None
+        for candidate in ['TIMESTAMP', 'DATE', 'Date', 'DATE1']:
+            if candidate in data.columns:
+                date_col = candidate
+                break
+        if date_col is None:
+            return None
+
+        data = data.copy()
+        data[date_col] = pd.to_datetime(data[date_col], errors='coerce')
+        data = data.dropna(subset=[date_col])
+        if data.empty:
+            return None
+
+        data['trade_date'] = data[date_col].dt.date
+        dates = sorted(data['trade_date'].unique())
+        if len(dates) < 2:
+            return None
+
+        current_date = dates[-1]
+        prev_date = dates[-2]
+
+        def _sum_oi(df, opt_type):
+            subset = df[df['OPTION_TYP'] == opt_type]
+            if subset.empty:
+                return 0.0
+            return pd.to_numeric(subset.get('OPEN_INT', 0), errors='coerce').fillna(0).sum()
+
+        current_df = data[data['trade_date'] == current_date]
+        prev_df = data[data['trade_date'] == prev_date]
+
+        ce_oi = _sum_oi(current_df, 'CE')
+        pe_oi = _sum_oi(current_df, 'PE')
+        prev_ce_oi = _sum_oi(prev_df, 'CE')
+        prev_pe_oi = _sum_oi(prev_df, 'PE')
+
+        if prev_ce_oi == 0 or prev_pe_oi == 0:
+            return None
+
+        ce_oi_chg_pct = ((ce_oi - prev_ce_oi) / prev_ce_oi) * 100
+        pe_oi_chg_pct = ((pe_oi - prev_pe_oi) / prev_pe_oi) * 100
+
+        return {
+            'ce_oi': int(ce_oi),
+            'pe_oi': int(pe_oi),
+            'ce_oi_chg_pct': round(float(ce_oi_chg_pct), 2),
+            'pe_oi_chg_pct': round(float(pe_oi_chg_pct), 2)
+        }
+    except Exception as e:
+        log.debug(f"Option OI fetch failed for {symbol}: {e}")
+        return None
+
+
 def get_oi_data(symbol):
     """Fetch OI, Price, Volume and ADX data for one stock from NSE"""
     try:
@@ -720,12 +807,29 @@ def get_oi_data(symbol):
         # ADX — only compute when filter is enabled (saves CPU)  (Issue 8)
         adx_value = calculate_adx(data, period=ADX_PERIOD) if ENABLE_ADX_FILTER else 0.0
 
+        option_oi = None
+        try:
+            option_oi = get_option_oi_data(symbol)
+        except Exception as e:
+            log.debug(f"Option OI data unavailable for {symbol}: {e}")
+
+        if option_oi is None:
+            log.debug(f"Option OI data unavailable for {symbol}")
+
+        ce_oi_chg_pct = 0.0
+        pe_oi_chg_pct = 0.0
+        if option_oi:
+            ce_oi_chg_pct = option_oi.get('ce_oi_chg_pct', 0.0)
+            pe_oi_chg_pct = option_oi.get('pe_oi_chg_pct', 0.0)
+
         return {
             'Symbol'       : symbol,
             'Price'        : round(current_price, 2),
             'Price_Chg_%'  : round(price_chg_pct, 2),
             'OI'           : int(current_oi),
             'OI_Chg_%'     : round(oi_chg_pct, 2),
+            'CE_OI_Chg_%'  : round(ce_oi_chg_pct, 2),
+            'PE_OI_Chg_%'  : round(pe_oi_chg_pct, 2),
             'Volume'       : int(current_vol),
             'Vol_Ratio'    : round(vol_ratio, 2),
             'ADX'          : adx_value,
@@ -816,6 +920,9 @@ def update_config_json(scan_num, current_symbol, results, ce_candidates, pe_cand
                 "scan_interval"         : SCAN_INTERVAL,
                 "oi_change_min"         : OI_CHANGE_MIN,
                 "price_change_min"      : PRICE_CHANGE_MIN,
+                "hidden_bullish_enabled" : ENABLE_HIDDEN_BULLISH,
+                "hb_price_max"           : HB_PRICE_MAX,
+                "hb_price_min"           : HB_PRICE_MIN,
                 "volume_mult"           : VOLUME_MULT,
                 "request_delay"         : REQUEST_DELAY,
                 "adx_filter_enabled"    : ENABLE_ADX_FILTER,
@@ -838,6 +945,7 @@ def update_config_json(scan_num, current_symbol, results, ce_candidates, pe_cand
                 "market_mood"          : mood,
                 "long_buildup_count"   : long_bu,
                 "short_buildup_count"  : short_bu,
+                "hidden_bullish_count" : len([r for r in results if "HIDDEN BULLISH" in r['Signal']]),
                 "short_covering_count" : len([r for r in results if "SHORT COVERING"  in r['Signal']]),
                 "long_unwinding_count" : len([r for r in results if "LONG UNWINDING"  in r['Signal']]),
                 "pcr"                  : pcr if pcr is not None else 0,
@@ -851,9 +959,12 @@ def update_config_json(scan_num, current_symbol, results, ce_candidates, pe_cand
                     "price"        : s['Price'],
                     "price_change" : s['Price_Chg_%'],
                     "oi_change"    : s['OI_Chg_%'],
+                    "ce_oi_change" : s.get('CE_OI_Chg_%', 0),
+                    "pe_oi_change" : s.get('PE_OI_Chg_%', 0),
                     "volume_ratio" : s['Vol_Ratio'],
                     "adx"          : s.get('ADX', 0),
                     "signal"       : s['Signal'],
+                    "signal_type"  : "hidden_bullish" if "HIDDEN BULLISH" in s['Signal'] else "long_buildup",
                     "strength"     : (
                         "🔥🔥 VERY STRONG" if s['OI_Chg_%'] >= 5 and s['Vol_Ratio'] >= 3
                         else "🔥 STRONG"   if s['OI_Chg_%'] >= 3
@@ -894,7 +1005,8 @@ def update_config_json(scan_num, current_symbol, results, ce_candidates, pe_cand
                         "oi_ok"     : r['OI_Chg_%']    >= OI_CHANGE_MIN,
                         "price_ok"  : r['Price_Chg_%'] >= PRICE_CHANGE_MIN,
                         "volume_ok" : r['Vol_Ratio']   >= VOLUME_MULT,
-                        "adx_ok"    : (not ENABLE_ADX_FILTER) or (r.get('ADX', 0) >= ADX_MIN)
+                        "adx_ok"    : (not ENABLE_ADX_FILTER) or (r.get('ADX', 0) >= ADX_MIN),
+                        "hb_ok"     : "HIDDEN BULLISH" in r['Signal']
                     },
                     "time"         : r['Time']
                 }
@@ -920,6 +1032,8 @@ confirmed_signals = {}      # Improvement 5: { 'SYMBOL': consecutive_count }
 last_alerted      = {}      # Improvement 6: { 'SYMBOL': datetime_of_last_alert }
 confirmed_pe_signals = {}  # PE confirmation tracking
 last_pe_alerted      = {}  # PE cooldown tracking
+confirmed_hb_signals = {}  # Hidden Bullish confirmation tracking
+last_hb_alerted      = {}  # Hidden Bullish cooldown tracking
 
 def run_scanner():
     global scan_count, current_pcr_value
@@ -1048,6 +1162,37 @@ def run_scanner():
                 else:
                     if symbol in confirmed_pe_signals:
                         confirmed_pe_signals.pop(symbol)
+
+            # 🟢 Hidden Bullish Reversal Signal Detection 🟢
+            if ENABLE_HIDDEN_BULLISH:
+                price_weak_or_recovering = HB_PRICE_MIN <= row['Price_Chg_%'] <= HB_PRICE_MAX
+                put_writing_active = row['PE_OI_Chg_%'] >= OI_CHANGE_MIN
+                call_unwinding_active = row['CE_OI_Chg_%'] <= -OI_CHANGE_MIN
+                hb_vol_ok = row['Vol_Ratio'] >= VOLUME_MULT
+
+                if price_weak_or_recovering and put_writing_active and call_unwinding_active and hb_vol_ok:
+                    confirmed_hb_signals[symbol] = confirmed_hb_signals.get(symbol, 0) + 1
+                    row['confirm_count'] = confirmed_hb_signals[symbol]
+                    row['hb_confirmed'] = confirmed_hb_signals[symbol] >= CONFIRM_SCANS
+
+                    if confirmed_hb_signals[symbol] >= CONFIRM_SCANS:
+                        row['hb_confirmed'] = True
+                        row['Signal'] = "🟢 HIDDEN BULLISH"
+                        ce_candidates.append(row)
+                        log.info(
+                            f"HIDDEN BULLISH confirmed: {symbol} | "
+                            f"Price: {row['Price_Chg_%']:+.2f}% | "
+                            f"PE OI: {row['PE_OI_Chg_%']:+.2f}% | "
+                            f"CE OI: {row['CE_OI_Chg_%']:+.2f}%"
+                        )
+                    else:
+                        log.info(f"Pending HB confirmation: {symbol} — "
+                                 f"{confirmed_hb_signals[symbol]}/{CONFIRM_SCANS} scans")
+                        print(f"  {CYAN}🟢 HB Confirming: {symbol} "
+                              f"({confirmed_hb_signals[symbol]}/{CONFIRM_SCANS} scans){RESET}")
+                else:
+                    if symbol in confirmed_hb_signals:
+                        confirmed_hb_signals.pop(symbol)
 
         # Rate limit — avoid hammering NSE API  (Issue 3)
         time.sleep(REQUEST_DELAY)
@@ -1345,6 +1490,10 @@ if __name__ == "__main__":
         print(f"  🔴 PE Signals : Enabled (Short Buildup detection)")
     else:
         print(f"  🔴 PE Signals : Disabled")
+    if ENABLE_HIDDEN_BULLISH:
+        print(f"  🟢 Hidden Bull : Enabled (price {HB_PRICE_MIN}% to {HB_PRICE_MAX}%)")
+    else:
+        print(f"  🟢 Hidden Bull : Disabled")
     if ENABLE_TIME_FILTER:
         print(f"  ⏰ Time Filter: {WINDOW1_START}–{WINDOW1_END} & {WINDOW2_START}–{WINDOW2_END}")
     else:
